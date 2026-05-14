@@ -106,7 +106,117 @@ Extended version of the training dataset that includes an additional 28 days of 
 
 ## Supporting Dimension Tables
 
-[To be filled with detailed table documentation]
+### calendar.csv - Date Dimension and Event Calendar
+
+Comprehensive date dimension table providing calendar context, events, holidays, and SNAP benefit information for the entire dataset timespan. Essential for incorporating temporal patterns and external factors into demand forecasting models.
+
+**Technical Details:** 1,969 rows, covers complete dataset timeline from d_1 to d_1969 (Jan 29, 2011 - June 19, 2016)
+
+**Fields:**
+
+• **date** (Date)
+  - Calendar date in YYYY-MM-DD format
+  - Links to: All sales tables via d_X mapping (d_1 = 2011-01-29)
+  - Business context: Primary temporal dimension for time series analysis
+
+• **wm_yr_wk** (Integer)
+  - Walmart fiscal year-week identifier
+  - Format: YYYWW (e.g., 11101 = 2011 week 1)
+  - Links to: sell_prices.csv for weekly pricing alignment
+  - Business context: Walmart's internal calendar system for business reporting
+
+• **weekday** (String)
+  - Day of the week name
+  - Values: "Monday", "Tuesday", ..., "Sunday"
+  - Business context: Day-of-week seasonality patterns in retail demand
+
+• **wday** (Integer)
+  - Numeric day of week
+  - Values: 1-7 (1=Saturday, 7=Friday in Walmart's calendar)
+  - Business context: Enables day-of-week effect modeling
+
+• **month** (Integer)
+  - Calendar month number
+  - Values: 1-12
+  - Business context: Monthly seasonality and trend analysis
+
+• **year** (Integer)
+  - Calendar year
+  - Values: 2011-2016
+  - Business context: Year-over-year growth and trend analysis
+
+• **d** (String)
+  - Day identifier matching sales table columns
+  - Format: "d_X" where X = 1 to 1969
+  - Links to: sales_train_validation.csv and sales_train_evaluation.csv columns
+  - Business context: Bridge between calendar dates and sales data structure
+
+• **event_name_1** (String)
+  - Primary event or holiday name
+  - Nullable field for non-event days
+  - Business context: Major events affecting retail demand (Christmas, Thanksgiving, etc.)
+
+• **event_type_1** (String)
+  - Classification of primary event
+  - Values: "Cultural", "National", "Religious", "Sporting"
+  - Business context: Event category for demand impact modeling
+
+• **event_name_2** (String)
+  - Secondary event name for days with multiple events
+  - Nullable field, less common than primary events
+  - Business context: Additional events that may influence demand
+
+• **event_type_2** (String)
+  - Classification of secondary event
+  - Same categories as event_type_1
+  - Business context: Secondary event impact analysis
+
+• **snap_CA** (Integer)
+  - SNAP (Supplemental Nutrition Assistance Program) benefit issuance indicator for California
+  - Values: 0 (no benefits), 1 (benefits issued)
+  - Business context: SNAP benefit timing affects food category demand patterns
+
+• **snap_TX** (Integer)
+  - SNAP benefit issuance indicator for Texas
+  - Values: 0 (no benefits), 1 (benefits issued)
+  - Links to: Texas store sales data for benefit impact analysis
+
+• **snap_WI** (Integer)
+  - SNAP benefit issuance indicator for Wisconsin  
+  - Values: 0 (no benefits), 1 (benefits issued)
+  - Business context: State-specific benefit timing for demand modeling
+
+### sell_prices.csv - Weekly Pricing Data
+
+Comprehensive pricing data providing weekly sell prices for item-store combinations. Critical for price-demand elasticity analysis and understanding the relationship between pricing strategies and sales performance.
+
+**Technical Details:** 6,841,121 rows, weekly granularity aligned with Walmart fiscal calendar, sparse matrix (not all item-store-week combinations present)
+
+**Fields:**
+
+• **store_id** (String)
+  - Store location identifier
+  - Format: "{State}_{Store_Number}" (e.g., "CA_1")
+  - Links to: sales_train_validation.csv and sales_train_evaluation.csv
+  - Business context: Store-specific pricing strategies and regional variations
+
+• **item_id** (String)
+  - Product identifier matching sales data structure
+  - Format: "CATEGORY_DEPT_ITEM"
+  - Links to: All sales tables for price-demand analysis
+  - Business context: Item-level pricing decisions and elasticity modeling
+
+• **wm_yr_wk** (Integer)
+  - Walmart fiscal year-week for price period
+  - Format: YYYWW, matches calendar.csv wm_yr_wk
+  - Links to: calendar.csv for temporal alignment
+  - Business context: Weekly pricing cycles and promotional timing
+
+• **sell_price** (Float)
+  - Unit selling price in USD for the specified week
+  - Precision: Typically to 2 decimal places
+  - Business context: Core input for price elasticity and revenue optimization
+  - Technical note: Missing combinations indicate item not sold at that store during that week
 
 ## Model Output Tables
 
