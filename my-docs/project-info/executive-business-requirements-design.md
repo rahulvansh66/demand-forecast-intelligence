@@ -1,4 +1,4 @@
----
+<!-- ---
 name: executive-business-requirements-design
 description: Design specification for creating executive business requirements document for Walmart demand forecasting copilot
 metadata:
@@ -7,7 +7,7 @@ metadata:
   project: retail-demand-forecast-copilot
   timeline: fast-track-6-12-months
   investment: 1-5M-pilot
----
+--- -->
 
 # Executive Business Requirements Document Design
 
@@ -86,7 +86,6 @@ Create a compelling business case that demonstrates:
   - Rationale: Diverse demand patterns test all system capabilities
 
 - **Store Selection (3 total):**
-  - Geographic diversity: urban, suburban, rural markets
   - Performance mix: high-performing and average-performing locations
   - Regional representation for seasonality and demand pattern testing
 
