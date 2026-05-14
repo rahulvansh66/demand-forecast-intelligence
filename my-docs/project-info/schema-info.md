@@ -248,4 +248,50 @@ Template defining the expected output format for demand forecasting models. Spec
 
 ## Database Relationships Summary
 
-[To be filled with relationship overview]
+The Walmart M5 dataset follows a hierarchical structure with clear relationships enabling comprehensive demand analysis across temporal, geographic, and product dimensions.
+
+### Primary Data Flow
+
+**Core Transaction Path:**
+- `sales_train_validation.csv` ↔ `sales_train_evaluation.csv`: Same item-store combinations, extended timeline
+- Daily sales columns (d_1, d_2, ...) → `calendar.csv`: Date dimension mapping
+- (item_id, store_id) → `sell_prices.csv`: Price-demand relationship analysis
+
+### Key Relationships
+
+**Temporal Relationships:**
+- **calendar.csv** serves as the master date dimension
+  - `d` field maps to sales table column names (d_1 ↔ 2011-01-29)
+  - `wm_yr_wk` links to pricing data weekly periods
+  - Event and SNAP fields provide external demand drivers
+
+**Geographic Hierarchy:**
+- **state_id** (CA, TX, WI) → **store_id** (CA_1, TX_2, etc.)
+- SNAP benefit timing varies by state (snap_CA, snap_TX, snap_WI)
+- Store-specific pricing strategies in sell_prices.csv
+
+**Product Hierarchy:**
+- **cat_id** (HOBBIES, HOUSEHOLD, FOODS) → **dept_id** → **item_id**
+- Enables aggregation at category, department, or item levels
+- Consistent across all sales and pricing tables
+
+**Forecasting Pipeline:**
+- Training data (d_1 to d_1913) → Validation period (d_1914 to d_1941) → Evaluation period (d_1942 to d_1969)
+- `sample_submission.csv` defines required output format (28-day horizons)
+- Model inputs: historical sales + calendar features + pricing data
+
+### Data Integration Patterns
+
+**For Demand Forecasting:**
+1. Join sales data with calendar for temporal features
+2. Join with pricing data for price elasticity analysis  
+3. Aggregate across product/geographic hierarchies as needed
+4. Generate forecasts in sample_submission.csv format
+
+**Primary Keys and Joins:**
+- **Sales tables:** id (item_id + store_id + type)
+- **Calendar:** d (maps to sales column names)
+- **Pricing:** (store_id, item_id, wm_yr_wk)
+- **Join pattern:** sales ← calendar (via d_X) ← pricing (via wm_yr_wk)
+
+This relational structure supports the complete retail demand forecasting pipeline from raw transaction data through ML model training to business insight generation.
