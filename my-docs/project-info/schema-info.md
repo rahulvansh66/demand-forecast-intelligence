@@ -18,7 +18,7 @@ The dataset spans from January 29, 2011 to June 19, 2016 (1,969 days total) and 
 
 Core transactional data containing daily unit sales for each item-store combination during the training period. This table forms the foundation for demand forecasting model development and historical pattern analysis.
 
-**Technical Details:** 30,490 rows, covers d_1 to d_1913 (Jan 29, 2011 - May 22, 2016), represents all item-store combinations
+**Technical Details:** 30,490 data rows (30,491 total with header), covers d_1 to d_1913 (Jan 29, 2011 - May 22, 2016), represents all item-store combinations
 
 **Fields:**
 
@@ -67,7 +67,7 @@ Core transactional data containing daily unit sales for each item-store combinat
 
 Extended version of the training dataset that includes an additional 28 days of sales data for model evaluation purposes. Maintains identical structure to the validation dataset but covers a longer time horizon.
 
-**Technical Details:** 30,490 rows, covers d_1 to d_1941 (Jan 29, 2011 - June 19, 2016), extends 28 days beyond training data
+**Technical Details:** 30,490 data rows (30,491 total with header), covers d_1 to d_1941 (Jan 29, 2011 - June 19, 2016), extends 28 days beyond training data
 
 **Fields:**
 
@@ -110,7 +110,7 @@ Extended version of the training dataset that includes an additional 28 days of 
 
 Comprehensive date dimension table providing calendar context, events, holidays, and SNAP benefit information for the entire dataset timespan. Essential for incorporating temporal patterns and external factors into demand forecasting models.
 
-**Technical Details:** 1,969 rows, covers complete dataset timeline from d_1 to d_1969 (Jan 29, 2011 - June 19, 2016)
+**Technical Details:** 1,969 data rows (1,970 total with header), covers complete dataset timeline from d_1 to d_1969 (Jan 29, 2011 - June 19, 2016)
 
 **Fields:**
 
@@ -190,7 +190,7 @@ Comprehensive date dimension table providing calendar context, events, holidays,
 
 Comprehensive pricing data providing weekly sell prices for item-store combinations. Critical for price-demand elasticity analysis and understanding the relationship between pricing strategies and sales performance.
 
-**Technical Details:** 6,841,121 rows, weekly granularity aligned with Walmart fiscal calendar, sparse matrix (not all item-store-week combinations present)
+**Technical Details:** 6,841,121 data rows (6,841,122 total with header), weekly granularity aligned with Walmart fiscal calendar, sparse matrix (not all item-store-week combinations present)
 
 **Fields:**
 
@@ -224,7 +224,7 @@ Comprehensive pricing data providing weekly sell prices for item-store combinati
 
 Template defining the expected output format for demand forecasting models. Specifies the structure for 28-day ahead predictions required for both validation and evaluation periods.
 
-**Technical Details:** 60,980 rows, represents forecast requirements for all item-store combinations across two submission types
+**Technical Details:** 60,980 data rows (60,981 total with header), represents forecast requirements for all item-store combinations across two submission types
 
 **Fields:**
 
