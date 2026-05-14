@@ -1,0 +1,5 @@
+- use document-schema.md instructions for dataset documentation
+- HLD
+- LLD
+- use project-structure-boilerplate-code.md for project setup
+- Finally, create initial CLAUDE.md based on project context

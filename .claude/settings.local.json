@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(py|js|ts|tsx|jsx|go|rs|java|cpp|c|h|r|R|scala|kt|swift|php|rb|pl|sh\\)$\")",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
