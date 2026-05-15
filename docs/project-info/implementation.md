@@ -1,5 +1,3 @@
-Define business problem and target
-
 Data Collection 
 - Decide sampling technique on original data 
 
@@ -46,10 +44,9 @@ Inference pipeline
 
 Model interpretation and explainability
 
-Drift
-- Data drift detection and monitoring
-- Concept drift checking
-- Statistical drift tests
+Drift detection and monitoring
+
+GenAI for Sale insight and explanation
 
 Fast API
 - Create endpoints 
@@ -58,4 +55,6 @@ Streamlit UI
 
 
 -------
-Note: things are missing but is out of scope of this project is system design, aws deployment
+Note: 
+- Though I didnt mention in above, we need to have write required test cases too. 
+- things are missing but is out of scope of this project is system design, aws deployment

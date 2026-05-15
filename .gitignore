@@ -1,6 +1,5 @@
-# Large data files - use Git LFS or download separately
-data/full_data/*.csv
-data/full_data/.DS_Store
+# Dataset
+data/
 *.DS_Store
 
 # OS generated files
@@ -11,3 +10,4 @@ data/full_data/.DS_Store
 .Trashes
 ehthumbs.db
 Thumbs.db
+tmp/

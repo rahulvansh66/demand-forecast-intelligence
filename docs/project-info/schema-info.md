@@ -218,33 +218,6 @@ Comprehensive pricing data providing weekly sell prices for item-store combinati
   - Business context: Core input for price elasticity and revenue optimization
   - Technical note: Missing combinations indicate item not sold at that store during that week
 
-## Model Output Tables
-
-### sample_submission.csv - Competition Submission Format
-
-Template defining the expected output format for demand forecasting models. Specifies the structure for 28-day ahead predictions required for both validation and evaluation periods.
-
-**Technical Details:** 60,980 data rows (60,981 total with header), represents forecast requirements for all item-store combinations across two submission types
-
-**Fields:**
-
-• **id** (String)
-  - Forecast identifier combining item_id + store_id + submission type
-  - Format: "HOBBIES_1_001_CA_1_validation" or "HOBBIES_1_001_CA_1_evaluation"
-  - Links to: sales_train_validation.csv and sales_train_evaluation.csv via id matching
-  - Business context: Identifies which demand series and evaluation period the forecast targets
-
-• **F1 to F28** (Integer)
-  - 28-day ahead unit sales forecasts
-  - F1 = 1-day ahead, F2 = 2-day ahead, ..., F28 = 28-day ahead
-  - Business context: Standard forecasting horizon for retail inventory planning
-  - Links to: Future dates beyond the training data cutoff
-  - Technical note: Model output format requiring non-negative integer predictions
-
-**Forecast Periods:**
-- **Validation forecasts:** Predict d_1914 to d_1941 (28 days after training data)
-- **Evaluation forecasts:** Predict d_1942 to d_1969 (28 days after validation period)
-- **Business context:** Supports both model development (validation) and final assessment (evaluation)
 
 ## Database Relationships Summary
 
