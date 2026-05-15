@@ -23,7 +23,7 @@ Using the Walmart M5 dataset, this project focuses on:
 
 ### Simple meaning
 
-Demand forecasting predicts how many units of a product are expected to sell in the future.
+Demand forecasting predicts how many units of a product are expected to sell for each day within the forecast horizon (e.g., daily predictions for the next 7 days).
 
 ### Implementation
 
@@ -44,7 +44,15 @@ Forecast Horizon = Next 7 days
 The model predicts:
 
 ```text
-Expected demand for next 7 days = 420 units
+Day 1: 62 units
+Day 2: 58 units  
+Day 3: 65 units
+Day 4: 59 units
+Day 5: 61 units
+Day 6: 57 units
+Day 7: 58 units
+
+Total expected demand for 7 days = 420 units
 ```
 
 ---
@@ -80,7 +88,8 @@ Forecast Output:
 Item: FOODS_3_090
 Store: CA_1
 Forecast Horizon: 7 days
-Predicted Demand: 420 units
+Daily Predictions: [62, 58, 65, 59, 61, 57, 58]
+Total Predicted Demand: 420 units
 ```
 
 ---
@@ -427,7 +436,8 @@ The ML system produces numerical and label-based outputs. GenAI converts those o
 Store ID: CA_1
 Item ID: FOODS_3_090
 Forecast Horizon: 7 days
-Predicted Demand: 420 units
+Daily Predictions: [62, 58, 65, 59, 61, 57, 58]
+Total Predicted Demand: 420 units
 
 Trend Label: Increasing
 Seasonality Label: Seasonal
@@ -496,7 +506,8 @@ Forecast Horizon = 7 days
 ## Forecasting output
 
 ```text
-Predicted Demand = 420 units
+Daily Predictions = [62, 58, 65, 59, 61, 57, 58]
+Total Predicted Demand = 420 units
 ```
 
 ---
@@ -514,7 +525,7 @@ Variability Label = Medium
 
 ## Final GenAI insight
 
-> FOODS_3_090 in CA_1 is forecasted to sell 420 units in the next 7 days. The product is fast-moving, has an increasing demand trend, and shows seasonal behavior. Since demand is expected to remain strong, Walmart should prepare inventory in advance and monitor this item closely during upcoming high-demand periods.
+> FOODS_3_090 in CA_1 is forecasted to sell 420 units over the next 7 days, with daily predictions of [62, 58, 65, 59, 61, 57, 58] units respectively. The product is fast-moving, has an increasing demand trend, and shows seasonal behavior. Since demand is expected to remain strong with consistent daily sales around 60 units, Walmart should prepare inventory in advance and monitor this item closely during upcoming high-demand periods.
 
 ---
 
