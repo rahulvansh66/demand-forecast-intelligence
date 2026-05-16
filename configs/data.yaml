@@ -1,0 +1,44 @@
+# M5 Dataset Configuration
+dataset:
+  name: "walmart_m5"
+  description: "Walmart M5 Forecasting Competition Dataset"
+
+  # Data paths (relative to project root)
+  paths:
+    raw: "data/raw"
+    interim: "data/interim"
+    processed: "data/processed"
+
+  # M5 CSV files
+  files:
+    sales_train_validation: "sales_train_validation.csv"
+    sales_train_evaluation: "sales_train_evaluation.csv"
+    calendar: "calendar.csv"
+    sell_prices: "sell_prices.csv"
+
+  # Data validation rules
+  validation:
+    max_missing_percentage: 0.05  # 5% max missing values
+    min_rows: 1000
+    required_columns:
+      sales_train_validation: ["id", "item_id", "dept_id", "cat_id", "store_id", "state_id"]
+      sales_train_evaluation: ["id", "item_id", "dept_id", "cat_id", "store_id", "state_id"]
+      calendar: ["date", "wm_yr_wk", "weekday", "wday", "month", "year", "d", "event_name_1", "event_type_1", "event_name_2", "event_type_2", "snap_CA", "snap_TX", "snap_WI"]
+      sell_prices: ["store_id", "item_id", "wm_yr_wk", "sell_price"]
+
+# Feature engineering configuration
+# Note: Using single XGBoost model approach - thresholds create product type features, not separate models
+features:
+  temporal:
+    lag_periods: [1, 2, 3, 7, 14, 28]  # Optimized for 7-day forecasts: recent momentum + weekly patterns
+    rolling_windows: [3, 7, 14]        # Short-term averages: 3-day trend, 1-week avg, 2-week avg
+
+  calendar:
+    include_events: true          # Use event_name_1/2, event_type_1/2 for holiday/event features
+    include_snap_benefits: true   # Use snap_CA/TX/WI for SNAP benefit impact features
+    include_weekends: true        # Create weekend/weekday effect features
+
+  sales:
+    min_history_days: 28          # Minimum days of history required for valid products
+    zero_sales_threshold: 0.7     # Threshold for creating is_intermittent binary feature (>70% zero sales days)
+    cv_threshold: 2.0             # Coefficient of variation threshold for creating is_volatile binary feature
