@@ -13,15 +13,15 @@
 ## File Structure Overview
 
 ### Core Infrastructure
-- `src/retail_demand_copilot/core/config/settings.py` - Configuration management
-- `src/retail_demand_copilot/core/logging/logger.py` - Structured logging setup  
-- `src/retail_demand_copilot/core/constants/paths.py` - Project paths and constants
-- `src/retail_demand_copilot/core/exceptions/data_exceptions.py` - Custom exceptions
+- `src/demand_forecast_intelligence/core/config/settings.py` - Configuration management
+- `src/demand_forecast_intelligence/core/logging/logger.py` - Structured logging setup  
+- `src/demand_forecast_intelligence/core/constants/paths.py` - Project paths and constants
+- `src/demand_forecast_intelligence/core/exceptions/data_exceptions.py` - Custom exceptions
 
 ### Data Layer
-- `src/retail_demand_copilot/data/schemas/m5_schemas.py` - M5 dataset schemas
-- `src/retail_demand_copilot/data/loaders/m5_loader.py` - M5 CSV file loaders
-- `src/retail_demand_copilot/data/validators/data_quality.py` - Data quality checks
+- `src/demand_forecast_intelligence/data/schemas/m5_schemas.py` - M5 dataset schemas
+- `src/demand_forecast_intelligence/data/loaders/m5_loader.py` - M5 CSV file loaders
+- `src/demand_forecast_intelligence/data/validators/data_quality.py` - Data quality checks
 
 ### Configuration
 - `configs/data.yaml` - Dataset configuration
@@ -49,8 +49,8 @@ import importlib.util
 def test_package_importable():
     """Test that the main package can be imported."""
     spec = importlib.util.spec_from_file_location(
-        "retail_demand_copilot", 
-        "src/retail_demand_copilot/__init__.py"
+        "demand_forecast_intelligence", 
+        "src/demand_forecast_intelligence/__init__.py"
     )
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
@@ -70,9 +70,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "retail-demand-copilot"
+name = "demand-forecast-intelligence"
 version = "0.1.0"
-description = "ML-driven retail demand forecasting copilot using Walmart M5 dataset"
+description = "ML-driven demand forecast intelligence platform using Walmart M5 dataset"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -196,7 +196,7 @@ from pathlib import Path
 import tempfile
 import yaml
 
-from retail_demand_copilot.core.config.settings import Settings, load_config
+from demand_forecast_intelligence.core.config.settings import Settings, load_config
 
 def test_load_config_from_yaml():
     """Test loading configuration from YAML file."""
@@ -231,19 +231,19 @@ Expected: FAIL with import error
 
 - [ ] **Step 3: Create core configuration module**
 
-Create `src/retail_demand_copilot/core/__init__.py`:
+Create `src/demand_forecast_intelligence/core/__init__.py`:
 ```python
-"""Core infrastructure module for retail demand copilot."""
+"""Core infrastructure module for demand forecast intelligence."""
 ```
 
-Create `src/retail_demand_copilot/core/config/__init__.py`:
+Create `src/demand_forecast_intelligence/core/config/__init__.py`:
 ```python
 """Configuration management module."""
 ```
 
-Create `src/retail_demand_copilot/core/config/settings.py`:
+Create `src/demand_forecast_intelligence/core/config/settings.py`:
 ```python
-"""Configuration management for retail demand copilot."""
+"""Configuration management for demand forecast intelligence."""
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -386,7 +386,7 @@ import logging
 import json
 from io import StringIO
 
-from retail_demand_copilot.core.logging.logger import setup_logging, get_logger
+from demand_forecast_intelligence.core.logging.logger import setup_logging, get_logger
 
 
 def test_setup_logging_creates_structured_logger():
@@ -430,14 +430,14 @@ Expected: FAIL with import error
 
 - [ ] **Step 3: Create logging infrastructure**
 
-Create `src/retail_demand_copilot/core/logging/__init__.py`:
+Create `src/demand_forecast_intelligence/core/logging/__init__.py`:
 ```python
 """Logging infrastructure module."""
 ```
 
-Create `src/retail_demand_copilot/core/logging/logger.py`:
+Create `src/demand_forecast_intelligence/core/logging/logger.py`:
 ```python
-"""Structured logging setup for retail demand copilot."""
+"""Structured logging setup for demand forecast intelligence."""
 
 import logging
 import sys
@@ -563,8 +563,8 @@ Create `tests/unit/core/test_constants.py`:
 from pathlib import Path
 import pytest
 
-from retail_demand_copilot.core.constants.paths import ProjectPaths, M5Files
-from retail_demand_copilot.core.exceptions.data_exceptions import DataFileNotFoundError
+from demand_forecast_intelligence.core.constants.paths import ProjectPaths, M5Files
+from demand_forecast_intelligence.core.exceptions.data_exceptions import DataFileNotFoundError
 
 
 def test_project_paths_initialization():
@@ -602,12 +602,12 @@ Expected: FAIL with import error
 
 - [ ] **Step 3: Create exceptions module**
 
-Create `src/retail_demand_copilot/core/exceptions/__init__.py`:
+Create `src/demand_forecast_intelligence/core/exceptions/__init__.py`:
 ```python
-"""Custom exceptions for retail demand copilot."""
+"""Custom exceptions for demand forecast intelligence."""
 ```
 
-Create `src/retail_demand_copilot/core/exceptions/data_exceptions.py`:
+Create `src/demand_forecast_intelligence/core/exceptions/data_exceptions.py`:
 ```python
 """Data-related custom exceptions."""
 
@@ -655,12 +655,12 @@ class DataQualityError(DataException):
 
 - [ ] **Step 4: Create constants module**
 
-Create `src/retail_demand_copilot/core/constants/__init__.py`:
+Create `src/demand_forecast_intelligence/core/constants/__init__.py`:
 ```python
 """Constants and path definitions."""
 ```
 
-Create `src/retail_demand_copilot/core/constants/paths.py`:
+Create `src/demand_forecast_intelligence/core/constants/paths.py`:
 ```python
 """Project paths and file constants."""
 
@@ -681,7 +681,7 @@ class ProjectPaths:
         if project_root:
             self.PROJECT_ROOT = Path(project_root).resolve()
         else:
-            # Go up from src/retail_demand_copilot/core/constants/paths.py to project root
+            # Go up from src/demand_forecast_intelligence/core/constants/paths.py to project root
             self.PROJECT_ROOT = Path(__file__).parents[4].resolve()
         
         # Data directories
@@ -693,7 +693,7 @@ class ProjectPaths:
         
         # Source directories
         self.SRC_ROOT = self.PROJECT_ROOT / "src"
-        self.PACKAGE_ROOT = self.SRC_ROOT / "retail_demand_copilot"
+        self.PACKAGE_ROOT = self.SRC_ROOT / "demand_forecast_intelligence"
         
         # Configuration and outputs
         self.CONFIGS = self.PROJECT_ROOT / "configs"
@@ -760,7 +760,7 @@ Expected: PASS
 
 Add to `tests/unit/core/test_constants.py`:
 ```python
-from retail_demand_copilot.core.exceptions.data_exceptions import (
+from demand_forecast_intelligence.core.exceptions.data_exceptions import (
     DataValidationError, 
     DataQualityError
 )
@@ -823,7 +823,7 @@ import pandas as pd
 import pytest
 from datetime import datetime
 
-from retail_demand_copilot.data.schemas.m5_schemas import (
+from demand_forecast_intelligence.data.schemas.m5_schemas import (
     SalesRecord,
     CalendarRecord, 
     PriceRecord,
@@ -915,17 +915,17 @@ Expected: FAIL with import error
 
 - [ ] **Step 3: Create data schemas module**
 
-Create `src/retail_demand_copilot/data/__init__.py`:
+Create `src/demand_forecast_intelligence/data/__init__.py`:
 ```python
 """Data access and management module."""
 ```
 
-Create `src/retail_demand_copilot/data/schemas/__init__.py`:
+Create `src/demand_forecast_intelligence/data/schemas/__init__.py`:
 ```python
 """Data schemas and validation models."""
 ```
 
-Create `src/retail_demand_copilot/data/schemas/m5_schemas.py`:
+Create `src/demand_forecast_intelligence/data/schemas/m5_schemas.py`:
 ```python
 """Pydantic schemas for M5 dataset validation."""
 
