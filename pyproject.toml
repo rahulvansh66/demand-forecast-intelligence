@@ -7,18 +7,24 @@ name = "demand-forecast-intelligence"
 version = "0.1.0"
 description = "ML-driven demand forecast intelligence platform using Walmart M5 dataset"
 readme = "README.md"
+authors = [{name = "Demand Forecast Intelligence Team"}]
+license = {text = "MIT"}
 requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.0.0",
     "pydantic>=2.0.0",
     "PyYAML>=6.0",
     "structlog>=23.0.0",
-    "pytest>=7.0.0",
     "numpy>=1.24.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/rahulvansh66/demand-forecast-intelligence"
+Issues = "https://github.com/rahulvansh66/demand-forecast-intelligence/issues"
+
 [project.optional-dependencies]
 dev = [
+    "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
     "isort>=5.12.0",
