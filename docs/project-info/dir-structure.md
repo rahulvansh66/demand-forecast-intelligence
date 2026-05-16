@@ -1,4 +1,4 @@
-retail-demand-forecast-copilot/
+demand-forecast-intelligence/
 ├── data/                         # Local dataset storage, not Python package code
 │   ├── raw/                      # Original untouched M5 CSV files
 │   ├── interim/                  # Temporary intermediate data during processing
