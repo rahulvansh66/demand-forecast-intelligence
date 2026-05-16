@@ -6,6 +6,13 @@ from typing import Optional
 import structlog
 
 
+# Valid log levels for validation
+_VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+# Track handlers created by this module to manage them safely
+_MANAGED_HANDLERS = []
+
+
 def setup_logging(
     level: str = "INFO",
     format_json: bool = True,
@@ -17,22 +24,39 @@ def setup_logging(
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         format_json: Whether to format logs as JSON
         add_handler: Optional custom handler for testing
+
+    Raises:
+        ValueError: If level is not a valid log level
     """
-    # Configure standard logging first
+    # Validate log level
+    if level.upper() not in _VALID_LOG_LEVELS:
+        raise ValueError(
+            f"Invalid log level '{level}'. Must be one of: {', '.join(_VALID_LOG_LEVELS)}"
+        )
+
+    # Configure standard logging
     root_logger = logging.getLogger()
 
-    # Clear existing handlers to avoid conflicts
-    root_logger.handlers.clear()
+    # Only remove handlers we previously created to avoid interfering with other libraries
+    for handler in _MANAGED_HANDLERS[:]:  # Use slice copy to avoid modification during iteration
+        root_logger.removeHandler(handler)
+        handler.close()
+        _MANAGED_HANDLERS.remove(handler)
 
+    # Add our handler
     if add_handler:
-        root_logger.addHandler(add_handler)
+        handler = add_handler
     else:
         handler = logging.StreamHandler(sys.stdout)
-        root_logger.addHandler(handler)
 
-    root_logger.setLevel(getattr(logging, level.upper()))
+    root_logger.addHandler(handler)
+    _MANAGED_HANDLERS.append(handler)
 
-    # Configure structlog
+    # Set level
+    log_level = getattr(logging, level.upper())
+    root_logger.setLevel(log_level)
+
+    # Configure structlog with consistent level filtering
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -44,9 +68,7 @@ def setup_logging(
             structlog.processors.TimeStamper(fmt="ISO"),
             structlog.processors.JSONRenderer() if format_json else structlog.dev.ConsoleRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level.upper())
-        ),
+        wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
         context_class=dict,
         cache_logger_on_first_use=True,
@@ -63,7 +85,3 @@ def get_logger(name: str) -> structlog.BoundLogger:
         Configured structlog logger instance
     """
     return structlog.get_logger(name)
-
-
-# Default setup for package imports
-setup_logging()
