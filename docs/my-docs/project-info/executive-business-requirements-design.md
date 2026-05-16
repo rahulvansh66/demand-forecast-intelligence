@@ -4,7 +4,7 @@ description: Design specification for creating executive business requirements d
 metadata:
   type: design
   audience: senior-executives-leadership
-  project: retail-demand-forecast-copilot
+  project: demand-forecast-intelligence
   timeline: fast-track-6-12-months
   investment: 1-5M-pilot
 --- -->
