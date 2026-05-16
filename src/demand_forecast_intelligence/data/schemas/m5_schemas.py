@@ -3,7 +3,30 @@
 from datetime import date
 from typing import Optional, List, Set
 import pandas as pd
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
+
+# Constants for M5 dataset business rules
+VALID_STATES = {'CA', 'TX', 'WI'}
+VALID_CATEGORIES = {'HOBBIES', 'HOUSEHOLD', 'FOODS'}
+VALID_WEEKDAYS = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'}
+M5_YEAR_RANGE = (2011, 2016)
+
+
+def validate_store_id_format(store_id: str) -> str:
+    """Validate store ID follows format {STATE}_{NUMBER}.
+
+    Args:
+        store_id: Store identifier to validate
+
+    Returns:
+        str: Validated store ID
+
+    Raises:
+        ValueError: If store ID format is invalid
+    """
+    if not store_id or len(store_id.split('_')) != 2:
+        raise ValueError('store_id must follow format {STATE}_{NUMBER}')
+    return store_id
 
 
 class SalesRecord(BaseModel):
@@ -16,26 +39,24 @@ class SalesRecord(BaseModel):
     store_id: str = Field(..., description="Store identifier")
     state_id: str = Field(..., description="State identifier")
 
-    @validator('state_id')
+    @field_validator('state_id')
+    @classmethod
     def validate_state_id(cls, v):
-        valid_states = {'CA', 'TX', 'WI'}
-        if v not in valid_states:
-            raise ValueError(f'state_id must be one of {valid_states}')
+        if v not in VALID_STATES:
+            raise ValueError(f'state_id must be one of {VALID_STATES}')
         return v
 
-    @validator('cat_id')
+    @field_validator('cat_id')
+    @classmethod
     def validate_category(cls, v):
-        valid_categories = {'HOBBIES', 'HOUSEHOLD', 'FOODS'}
-        if v not in valid_categories:
-            raise ValueError(f'cat_id must be one of {valid_categories}')
+        if v not in VALID_CATEGORIES:
+            raise ValueError(f'cat_id must be one of {VALID_CATEGORIES}')
         return v
 
-    @validator('store_id')
+    @field_validator('store_id')
+    @classmethod
     def validate_store_format(cls, v):
-        # Store format: {STATE}_{NUMBER}
-        if not v or len(v.split('_')) != 2:
-            raise ValueError('store_id must follow format {STATE}_{NUMBER}')
-        return v
+        return validate_store_id_format(v)
 
 
 class CalendarRecord(BaseModel):
@@ -56,14 +77,15 @@ class CalendarRecord(BaseModel):
     snap_TX: Optional[int] = Field(None, ge=0, le=1)
     snap_WI: Optional[int] = Field(None, ge=0, le=1)
 
-    @validator('weekday')
+    @field_validator('weekday')
+    @classmethod
     def validate_weekday(cls, v):
-        valid_days = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'}
-        if v not in valid_days:
-            raise ValueError(f'weekday must be one of {valid_days}')
+        if v not in VALID_WEEKDAYS:
+            raise ValueError(f'weekday must be one of {VALID_WEEKDAYS}')
         return v
 
-    @validator('d')
+    @field_validator('d')
+    @classmethod
     def validate_day_identifier(cls, v):
         if not v.startswith('d_') or not v[2:].isdigit():
             raise ValueError('d must follow format d_{number}')
@@ -78,11 +100,10 @@ class PriceRecord(BaseModel):
     wm_yr_wk: int = Field(..., description="Walmart year-week identifier")
     sell_price: float = Field(..., gt=0, description="Unit selling price")
 
-    @validator('store_id')
+    @field_validator('store_id')
+    @classmethod
     def validate_store_format(cls, v):
-        if not v or len(v.split('_')) != 2:
-            raise ValueError('store_id must follow format {STATE}_{NUMBER}')
-        return v
+        return validate_store_id_format(v)
 
 
 def validate_sales_dataframe(df: pd.DataFrame) -> None:
@@ -131,8 +152,9 @@ def validate_calendar_dataframe(df: pd.DataFrame) -> None:
         raise ValueError(f"Missing required columns: {missing_columns}")
 
     # Validate date range
-    if df['year'].min() < 2011 or df['year'].max() > 2016:
-        raise ValueError("Calendar data must be within 2011-2016 range")
+    min_year, max_year = M5_YEAR_RANGE
+    if df['year'].min() < min_year or df['year'].max() > max_year:
+        raise ValueError(f"Calendar data must be within {min_year}-{max_year} range")
 
     # Check for duplicate dates
     if df['date'].duplicated().any():

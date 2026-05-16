@@ -7,7 +7,8 @@ from demand_forecast_intelligence.data.schemas.m5_schemas import (
     CalendarRecord,
     PriceRecord,
     validate_sales_dataframe,
-    validate_calendar_dataframe
+    validate_calendar_dataframe,
+    validate_prices_dataframe
 )
 
 
@@ -129,3 +130,34 @@ def test_price_record_validation():
             wm_yr_wk=11101,
             sell_price=-1.0  # Invalid negative price
         )
+
+
+def test_validate_prices_dataframe():
+    """Test prices DataFrame validation function."""
+    # Valid DataFrame
+    df = pd.DataFrame({
+        'store_id': ['CA_1', 'TX_1'],
+        'item_id': ['FOODS_1_001', 'FOODS_1_002'],
+        'wm_yr_wk': [11101, 11101],
+        'sell_price': [3.97, 2.50]
+    })
+
+    # Should not raise
+    validate_prices_dataframe(df)
+
+    # Missing required column
+    df_missing = df.drop('sell_price', axis=1)
+    with pytest.raises(ValueError, match="Missing required columns"):
+        validate_prices_dataframe(df_missing)
+
+    # Test negative prices
+    df_negative = df.copy()
+    df_negative.loc[0, 'sell_price'] = -1.0
+    with pytest.raises(ValueError, match="All prices must be positive"):
+        validate_prices_dataframe(df_negative)
+
+    # Test null prices
+    df_null = df.copy()
+    df_null.loc[0, 'sell_price'] = None
+    with pytest.raises(ValueError, match="Prices cannot be null"):
+        validate_prices_dataframe(df_null)
