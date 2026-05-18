@@ -88,21 +88,29 @@ class SampleGenerator:
         # The stratifier handles the core anti-bias mechanism through
         # multi-dimensional behavioral classification
 
-        # Convert volume percentiles to bucket names for stratifier
-        volume_buckets = []
-        for i in range(len(config.volume_percentiles) - 1):
-            if i == 0:
-                volume_buckets.append('low')
-            elif i == len(config.volume_percentiles) - 2:
-                volume_buckets.append('high')
-            else:
-                volume_buckets.append('medium')
+        # Create volume bucket names for stratifier (always use low, medium, high for simplicity)
+        volume_buckets = ['low', 'medium', 'high']
+        # Use simplified percentiles that work with 3 buckets
+        volume_percentiles = [33, 67]  # Create low (0-33), medium (33-67), high (67-100)
+
+        # Map SamplingConfig keys to BehavioralStratifier expected format
+        lifecycle_windows = {
+            'early_period': 365,  # Days for early lifecycle analysis
+            'late_period': 365,   # Days for late lifecycle analysis
+            'min_active_days': 30  # Minimum activity for classification
+        }
+
+        # Convert intermittency list to dictionary format expected by stratifier
+        intermittency_dict = {
+            'sparse': config.intermittency_thresholds[0],     # 0.2
+            'intermittent': config.intermittency_thresholds[1] # 0.6
+        }
 
         stratifier_config = {
             'volume_buckets': volume_buckets,
-            'volume_percentiles': config.volume_percentiles,
-            'intermittency_thresholds': config.intermittency_thresholds,
-            'lifecycle_windows': config.lifecycle_thresholds
+            'volume_percentiles': volume_percentiles,  # Use our simplified percentiles
+            'intermittency_thresholds': intermittency_dict,
+            'lifecycle_windows': lifecycle_windows
         }
         self.stratifier = BehavioralStratifier(stratifier_config)
 
