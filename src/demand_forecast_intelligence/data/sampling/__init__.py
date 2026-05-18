@@ -26,5 +26,13 @@ making rapid POC development impractical. This sampling system achieves:
 """
 
 from .config import SamplingConfig
+from .behavioral_stratifier import BehavioralStratifier
+from .sample_generator import SampleGenerator
+from .validation_metrics import ValidationMetrics
 
-__all__ = ["SamplingConfig"]
+__all__ = [
+    "SamplingConfig",
+    "BehavioralStratifier",
+    "SampleGenerator",
+    "ValidationMetrics"
+]
