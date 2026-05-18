@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep -E \"\\\\.\\(py|js|ts|tsx|jsx|go|rs|java|cpp|c|h|r|R|scala|kt|swift|php|rb|pl|sh\\)$\")",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python -m pytest tests/test_project_setup.py -v)",
+      "Bash(python -c \"import yaml; yaml.safe_load\\(open\\('configs/data.yaml', 'r'\\)\\)\")"
     ]
   }
 }

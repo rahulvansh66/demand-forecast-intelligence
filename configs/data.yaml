@@ -54,5 +54,5 @@ features:
 
   sales:
     min_history_days: 28          # Minimum days of history required for valid products
-    zero_sales_threshold: 0.7     # Threshold for creating is_intermittent binary feature (>70% zero sales days)
+    zero_sales_threshold: 0.8     # Threshold for creating is_intermittent binary feature (>80% zero sales days)
     cv_threshold: 2.0             # Coefficient of variation threshold for creating is_volatile binary feature

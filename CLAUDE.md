@@ -15,6 +15,7 @@ This is a retail demand forecasting copilot that provides ML-driven demand forec
 The project uses the Walmart M5 dataset with this data flow:
 - **Primary data**: `sales_train_validation.csv` (daily unit sales per product-store combination)
 - **Calendar data**: `calendar.csv` (dates, weekdays, events, holidays)
+- **Complete calendar schema**: date, wm_yr_wk, weekday, wday, month, year, d, event_name_1, event_type_1, event_name_2, event_type_2, snap_CA, snap_TX, snap_WI
 - **Processing unit**: Each `item_id + store_id` combination is treated as one demand series
 - **Static input format**: Store ID, Item ID, Forecast Horizon (e.g., "CA_1", "FOODS_3_090", "7 days")
 
@@ -50,7 +51,9 @@ The project follows this development pipeline (see `docs/implementation-sequence
 4. **FastAPI Endpoints** → **Streamlit UI**
 
 ### Key Implementation Notes
+- Add sufficient comment to understand what code does, also the why i.e. the reasoning, background, or intent behind adding code
 - Always check for missing values and data quality BEFORE descriptive statistics
+- Validate complete M5 schemas: sales (id, item_id, dept_id, cat_id, store_id, state_id + d_columns), calendar (all 13 columns), prices (store_id, item_id, wm_yr_wk, sell_price)
 - Handle low-demand products separately in variability calculations (CV becomes unreliable)
 - Use feature engineering focused on business-meaningful demand patterns
 - Implement proper train/test splits respecting time series nature

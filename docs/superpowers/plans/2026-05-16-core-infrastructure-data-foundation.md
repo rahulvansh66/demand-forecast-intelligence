@@ -130,13 +130,12 @@ dataset:
     interim: "data/interim" 
     processed: "data/processed"
     
-  # M5 CSV files
+  # M5 CSV files  
   files:
     sales_train_validation: "sales_train_validation.csv"
     sales_train_evaluation: "sales_train_evaluation.csv" 
     calendar: "calendar.csv"
     sell_prices: "sell_prices.csv"
-    sample_submission: "sample_submission.csv"
     
   # Data validation rules
   validation:
@@ -144,22 +143,26 @@ dataset:
     min_rows: 1000
     required_columns:
       sales_train_validation: ["id", "item_id", "dept_id", "cat_id", "store_id", "state_id"]
-      calendar: ["date", "wm_yr_wk", "weekday", "wday", "month", "year", "d"]
+      sales_train_evaluation: ["id", "item_id", "dept_id", "cat_id", "store_id", "state_id"]  
+      calendar: ["date", "wm_yr_wk", "weekday", "wday", "month", "year", "d", "event_name_1", "event_type_1", "event_name_2", "event_type_2", "snap_CA", "snap_TX", "snap_WI"]
       sell_prices: ["store_id", "item_id", "wm_yr_wk", "sell_price"]
 
 # Feature engineering configuration
+# Note: Using single XGBoost model approach - thresholds create product type features, not separate models
 features:
   temporal:
-    lag_periods: [1, 7, 14, 28]  # Days to look back
-    rolling_windows: [7, 14, 28]  # Rolling average windows
+    lag_periods: [1, 2, 3, 7, 14, 28]  # Optimized for 7-day forecasts: recent momentum + weekly patterns
+    rolling_windows: [3, 7, 14]        # Short-term averages: 3-day trend, 1-week avg, 2-week avg
     
   calendar:
-    include_events: true
-    include_snap_benefits: true
+    include_events: true          # Use event_name_1/2, event_type_1/2 for holiday/event features  
+    include_snap_benefits: true   # Use snap_CA/TX/WI for SNAP benefit impact features
+    include_weekends: true        # Create weekend/weekday effect features
     
   sales:
-    min_history_days: 28  # Minimum days of history required
-    zero_sales_threshold: 0.7  # Max percentage of zero-sales days
+    min_history_days: 28          # Minimum days of history required for valid products
+    zero_sales_threshold: 0.7     # Threshold for creating is_intermittent binary feature (>70% zero sales days)
+    cv_threshold: 2.0             # Coefficient of variation threshold for creating is_volatile binary feature
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -184,7 +187,7 @@ git commit -m "feat: add project dependencies and data configuration
 ### Task 2: Core Configuration Management
 
 **Files:**
-- Create: `src/retail_demand_copilot/core/config/settings.py`
+- Create: `src/demand_forecast_intelligence/core/config/settings.py`
 - Create: `tests/unit/core/test_config.py`
 
 - [ ] **Step 1: Write failing test for configuration loading**
@@ -361,7 +364,7 @@ Expected: PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/retail_demand_copilot/core/ tests/unit/core/test_config.py
+git add src/demand_forecast_intelligence/core/ tests/unit/core/test_config.py
 git commit -m "feat: add core configuration management
 
 - Implement Settings model with pydantic validation
@@ -375,7 +378,7 @@ git commit -m "feat: add core configuration management
 ### Task 3: Logging Infrastructure
 
 **Files:**
-- Create: `src/retail_demand_copilot/core/logging/logger.py`
+- Create: `src/demand_forecast_intelligence/core/logging/logger.py`
 - Create: `tests/unit/core/test_logging.py`
 
 - [ ] **Step 1: Write failing test for structured logging**
@@ -538,7 +541,7 @@ Expected: All PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/retail_demand_copilot/core/logging/ tests/unit/core/test_logging.py
+git add src/demand_forecast_intelligence/core/logging/ tests/unit/core/test_logging.py
 git commit -m "feat: add structured logging infrastructure
 
 - Implement structlog-based logging with JSON output
@@ -552,8 +555,8 @@ git commit -m "feat: add structured logging infrastructure
 ### Task 4: Project Constants and Paths
 
 **Files:**
-- Create: `src/retail_demand_copilot/core/constants/paths.py`
-- Create: `src/retail_demand_copilot/core/exceptions/data_exceptions.py`
+- Create: `src/demand_forecast_intelligence/core/constants/paths.py`
+- Create: `src/demand_forecast_intelligence/core/exceptions/data_exceptions.py`
 - Create: `tests/unit/core/test_constants.py`
 
 - [ ] **Step 1: Write failing test for path constants**
@@ -793,7 +796,7 @@ Expected: All PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/retail_demand_copilot/core/constants/ src/retail_demand_copilot/core/exceptions/ tests/unit/core/test_constants.py
+git add src/demand_forecast_intelligence/core/constants/ src/demand_forecast_intelligence/core/exceptions/ tests/unit/core/test_constants.py
 git commit -m "feat: add project constants and custom exceptions
 
 - Define ProjectPaths for consistent directory structure
@@ -807,7 +810,7 @@ git commit -m "feat: add project constants and custom exceptions
 ### Task 5: M5 Dataset Schema Definitions
 
 **Files:**
-- Create: `src/retail_demand_copilot/data/schemas/m5_schemas.py`
+- Create: `src/demand_forecast_intelligence/data/schemas/m5_schemas.py`
 - Create: `tests/unit/data/test_m5_schemas.py`
 
 - [ ] **Step 1: Write failing test for M5 schema validation**
@@ -1152,7 +1155,7 @@ Expected: All PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/retail_demand_copilot/data/schemas/ tests/unit/data/
+git add src/demand_forecast_intelligence/data/schemas/ tests/unit/data/
 git commit -m "feat: add M5 dataset schema validation
 
 - Define pydantic models for sales, calendar, and price records

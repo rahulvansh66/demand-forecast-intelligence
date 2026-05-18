@@ -17,6 +17,8 @@ EDA
 
 Hypothesis testing (after eda before Preprocessing pipeline)
 
+setup Airflow
+
 Preprocessing pipeline
 
 - Decide cleaning strategy
@@ -33,10 +35,8 @@ Preprocessing pipeline
 Training pipeline
 
 - Model Selection & Validation : Model architecture selection process, Cross-validation strategy, Baseline model establishment, Model comparison framework
-- ML flow
-- Train model
-- Evaluate model
-- Tune model
+- MLflow
+- Train and tune model
 - Hypothesis testing for model assumptions
 - A/B testing for model comparison
 
