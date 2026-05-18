@@ -24,8 +24,8 @@ Statistical Rationale:
 """
 
 import re
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Dict, Any
 
 
 @dataclass
@@ -47,6 +47,12 @@ class SamplingConfig:
                           Default 1400 represents ~46% of 3,049 M5 unique items,
                           chosen to achieve 50-60% overall dataset reduction while
                           maintaining statistical power for demand forecasting.
+
+        random_seed: Random seed for reproducible sampling across runs.
+                    Default 42 ensures consistent sample selection for POC
+                    development and testing. Critical for reproducible results
+                    when comparing different model configurations or validation
+                    approaches. Used by numpy/pandas sampling functions.
 
         training_end_day: Last day of training period in M5 format (d_XXXX).
                          Default "d_1913" represents the end of M5 training data,
@@ -73,6 +79,18 @@ class SamplingConfig:
                                  These thresholds align with retail demand patterns
                                  where intermittency strongly influences forecasting
                                  approach and accuracy.
+
+        lifecycle_thresholds: Dictionary defining lifecycle phase boundaries for temporal
+                             classification. Default values create 3 lifecycle phases:
+                             - Early phase: d_1 to early_end (d_1000)
+                             - Mature phase: early_end to late_start overlap period
+                             - Late phase: late_start (d_1000) to training_end_day
+                             - Discontinued: products ending before discontinued_cutoff (d_1700)
+
+                             Also defines longrun_min_span (900 days) to identify
+                             products with sufficient history for reliable forecasting.
+                             These temporal patterns help stratify products by
+                             lifecycle stage, which affects demand predictability.
 
         min_per_dept: Minimum number of items required per department.
                      Default 30 ensures adequate representation across M5's
@@ -106,17 +124,26 @@ class SamplingConfig:
         ... )
     """
 
-    # Core sampling parameters - balance efficiency vs statistical power
+    # Basic sampling parameters - core configuration for dataset reduction
     target_item_count: int = 1400  # ~46% of 3,049 unique M5 items for 50-60% reduction
+    random_seed: int = 42  # Reproducible sampling across runs, critical for consistent POCs
     training_end_day: str = "d_1913"  # End of M5 training period, prevents future leakage
 
-    # Behavioral stratification thresholds - capture demand pattern diversity
-    volume_percentiles: List[int] = None  # Volume distribution strata
-    intermittency_thresholds: List[float] = None  # Sales frequency classification
-
-    # Business constraints - ensure practical applicability
+    # Minimum constraints - ensure statistical and business validity
     min_per_dept: int = 30  # Adequate dept representation for business insights
     min_per_stratum: int = 2  # Prevent empty behavioral combinations
+
+    # Behavioral bucket thresholds - capture demand pattern diversity
+    volume_percentiles: List[int] = field(default_factory=lambda: [0, 25, 75, 95, 100])  # Volume distribution strata
+    intermittency_thresholds: List[float] = field(default_factory=lambda: [0.2, 0.6])  # Sales frequency classification
+
+    # Lifecycle thresholds - temporal pattern classification
+    lifecycle_thresholds: Dict[str, Any] = field(default_factory=lambda: {
+        "early_end": "d_1000",        # End of early lifecycle phase
+        "late_start": "d_1000",       # Start of late lifecycle phase
+        "longrun_min_span": 900,      # Minimum span for long-running products
+        "discontinued_cutoff": "d_1700"  # Cutoff for discontinued products
+    })
 
     def __post_init__(self):
         """
@@ -138,18 +165,13 @@ class SamplingConfig:
                        specific error message indicating the problem and
                        expected format/range.
         """
-        # Set default values for mutable lists (avoided in signature to prevent shared state)
-        if self.volume_percentiles is None:
-            # Statistical quintiles + extremes for heavy-tailed retail distribution
-            self.volume_percentiles = [0, 25, 75, 95, 100]
-
-        if self.intermittency_thresholds is None:
-            # Industry-standard intermittency classification for retail demand
-            self.intermittency_thresholds = [0.2, 0.6]
-
         # Validate target_item_count - must be positive for meaningful sampling
         if self.target_item_count <= 0:
             raise ValueError("target_item_count must be positive")
+
+        # Validate random_seed - must be non-negative for numpy/pandas compatibility
+        if self.random_seed < 0:
+            raise ValueError("random_seed must be non-negative")
 
         # Validate training_end_day - must follow M5 format (d_XXXX) for consistency
         if not re.match(r'^d_\d+$', self.training_end_day):
@@ -181,3 +203,19 @@ class SamplingConfig:
 
         if self.min_per_stratum <= 0:
             raise ValueError("min_per_stratum must be positive")
+
+        # Validate lifecycle_thresholds - must contain required keys with proper formats
+        required_lifecycle_keys = {"early_end", "late_start", "longrun_min_span", "discontinued_cutoff"}
+        if not all(key in self.lifecycle_thresholds for key in required_lifecycle_keys):
+            raise ValueError("lifecycle_thresholds must contain all required keys: " +
+                           ", ".join(sorted(required_lifecycle_keys)))
+
+        # Validate date format for lifecycle date thresholds
+        date_keys = ["early_end", "late_start", "discontinued_cutoff"]
+        for key in date_keys:
+            if not re.match(r'^d_\d+$', self.lifecycle_thresholds[key]):
+                raise ValueError(f"lifecycle_thresholds['{key}'] must be in format 'd_XXXX' where XXXX is numeric")
+
+        # Validate longrun_min_span - must be positive for meaningful analysis
+        if self.lifecycle_thresholds["longrun_min_span"] <= 0:
+            raise ValueError("lifecycle_thresholds['longrun_min_span'] must be positive")

@@ -20,11 +20,21 @@ class TestSamplingConfigDefaults:
 
         # Core sampling parameters - designed for 40-50% dataset reduction
         assert config.target_item_count == 1400, "Should target ~46% of 3,049 M5 items"
+        assert config.random_seed == 42, "Should use standard seed for reproducibility"
         assert config.training_end_day == "d_1913", "Must prevent future leakage"
 
         # Behavioral stratification thresholds - statistical quintiles + extremes
         assert config.volume_percentiles == [0, 25, 75, 95, 100], "Should create 4 volume strata"
         assert config.intermittency_thresholds == [0.2, 0.6], "Should create 3 intermittency levels"
+
+        # Lifecycle thresholds - temporal classification
+        expected_lifecycle = {
+            "early_end": "d_1000",
+            "late_start": "d_1000",
+            "longrun_min_span": 900,
+            "discontinued_cutoff": "d_1700"
+        }
+        assert config.lifecycle_thresholds == expected_lifecycle, "Should have correct lifecycle defaults"
 
         # Business constraints - ensure department representation
         assert config.min_per_dept == 30, "Should ensure adequate dept representation"
@@ -114,25 +124,89 @@ class TestSamplingConfigValidation:
         with pytest.raises(ValueError, match="min_per_stratum must be positive"):
             SamplingConfig(min_per_stratum=0)
 
+    def test_rejects_negative_random_seed(self):
+        """Test that random_seed must be non-negative."""
+        with pytest.raises(ValueError, match="random_seed must be non-negative"):
+            SamplingConfig(random_seed=-1)
+
+    def test_rejects_invalid_lifecycle_early_end_format(self):
+        """Test that lifecycle_thresholds early_end must follow d_XXXX format."""
+        with pytest.raises(ValueError, match="lifecycle_thresholds\['early_end'\] must be in format 'd_XXXX'"):
+            SamplingConfig(lifecycle_thresholds={
+                "early_end": "day_1000",
+                "late_start": "d_1000",
+                "longrun_min_span": 900,
+                "discontinued_cutoff": "d_1700"
+            })
+
+    def test_rejects_invalid_lifecycle_late_start_format(self):
+        """Test that lifecycle_thresholds late_start must follow d_XXXX format."""
+        with pytest.raises(ValueError, match="lifecycle_thresholds\['late_start'\] must be in format 'd_XXXX'"):
+            SamplingConfig(lifecycle_thresholds={
+                "early_end": "d_1000",
+                "late_start": "1000",
+                "longrun_min_span": 900,
+                "discontinued_cutoff": "d_1700"
+            })
+
+    def test_rejects_invalid_lifecycle_discontinued_cutoff_format(self):
+        """Test that lifecycle_thresholds discontinued_cutoff must follow d_XXXX format."""
+        with pytest.raises(ValueError, match="lifecycle_thresholds\['discontinued_cutoff'\] must be in format 'd_XXXX'"):
+            SamplingConfig(lifecycle_thresholds={
+                "early_end": "d_1000",
+                "late_start": "d_1000",
+                "longrun_min_span": 900,
+                "discontinued_cutoff": "discontinued_1700"
+            })
+
+    def test_rejects_negative_lifecycle_longrun_min_span(self):
+        """Test that lifecycle_thresholds longrun_min_span must be positive."""
+        with pytest.raises(ValueError, match="lifecycle_thresholds\['longrun_min_span'\] must be positive"):
+            SamplingConfig(lifecycle_thresholds={
+                "early_end": "d_1000",
+                "late_start": "d_1000",
+                "longrun_min_span": -100,
+                "discontinued_cutoff": "d_1700"
+            })
+
+    def test_rejects_missing_lifecycle_threshold_keys(self):
+        """Test that lifecycle_thresholds must contain all required keys."""
+        with pytest.raises(ValueError, match="lifecycle_thresholds must contain all required keys"):
+            SamplingConfig(lifecycle_thresholds={
+                "early_end": "d_1000",
+                "late_start": "d_1000"
+                # Missing longrun_min_span and discontinued_cutoff
+            })
+
 
 class TestSamplingConfigValidInput:
     """Test that valid inputs are accepted without errors."""
 
     def test_accepts_valid_custom_configuration(self):
         """Test that valid custom configuration values are accepted."""
+        custom_lifecycle = {
+            "early_end": "d_800",
+            "late_start": "d_900",
+            "longrun_min_span": 500,
+            "discontinued_cutoff": "d_1500"
+        }
         config = SamplingConfig(
             target_item_count=1000,
+            random_seed=123,
             training_end_day="d_1800",
             volume_percentiles=[10, 50, 90],
             intermittency_thresholds=[0.3, 0.7],
+            lifecycle_thresholds=custom_lifecycle,
             min_per_dept=20,
             min_per_stratum=1
         )
 
         assert config.target_item_count == 1000
+        assert config.random_seed == 123
         assert config.training_end_day == "d_1800"
         assert config.volume_percentiles == [10, 50, 90]
         assert config.intermittency_thresholds == [0.3, 0.7]
+        assert config.lifecycle_thresholds == custom_lifecycle
         assert config.min_per_dept == 20
         assert config.min_per_stratum == 1
 
@@ -154,6 +228,22 @@ class TestSamplingConfigValidInput:
         )
         assert config.volume_percentiles == [0, 100]
         assert config.intermittency_thresholds == [0.0, 1.0]
+
+    def test_accepts_zero_random_seed(self):
+        """Test that zero random_seed is valid."""
+        config = SamplingConfig(random_seed=0)
+        assert config.random_seed == 0
+
+    def test_accepts_custom_lifecycle_thresholds(self):
+        """Test that custom lifecycle threshold values are accepted."""
+        custom_lifecycle = {
+            "early_end": "d_500",
+            "late_start": "d_1200",
+            "longrun_min_span": 1000,
+            "discontinued_cutoff": "d_1900"
+        }
+        config = SamplingConfig(lifecycle_thresholds=custom_lifecycle)
+        assert config.lifecycle_thresholds == custom_lifecycle
 
 
 class TestSamplingConfigBusinessLogic:
