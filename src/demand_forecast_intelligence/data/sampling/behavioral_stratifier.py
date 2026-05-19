@@ -61,7 +61,7 @@ class BehavioralStratifier:
 
         Args:
             config: Dictionary containing stratification parameters:
-                - volume_buckets: List of volume bucket names (e.g., ['low', 'medium', 'high'])
+                - volume_buckets: List of volume bucket names (e.g., ['low', 'medium', 'high', 'very_high'])
                 - volume_percentiles: Percentile thresholds for bucketing (e.g., [33, 67] for tertiles)
                 - intermittency_thresholds: Dict with sparse/intermittent/regular thresholds
                 - lifecycle_windows: Dict with early_period, late_period, min_active_days
@@ -170,7 +170,7 @@ class BehavioralStratifier:
 
         Returns:
             DataFrame with original metrics plus stratification columns:
-            - volume_bucket: Volume bucket within department (low/medium/high)
+            - volume_bucket: Volume bucket within department (low/medium/high/very_high)
             - intermittency_class: Forecasting difficulty (sparse/intermittent/regular)
             - lifecycle_stage: Product maturity (early/mature/declining/discontinued)
             - stratum_key: Composite key for allocation (dept_volume_intermittency_lifecycle)
@@ -196,22 +196,20 @@ class BehavioralStratifier:
             dept_data = strata.loc[dept_mask]
 
             if len(dept_data) == 1:
-                # Single item in department gets assigned to middle bucket
+                # Single item in department gets assigned to the second bucket (medium)
                 volume_buckets.extend(['medium'])
             else:
-                # Use percentiles to create buckets within department
+                # Compute threshold values from inner cut points (e.g. [25, 75, 95] after
+                # stripping the 0/100 sentinels from config.volume_percentiles [0,25,75,95,100])
                 dept_sales = dept_data['avg_daily_sales'].values
                 percentile_values = np.percentile(dept_sales, self.volume_percentiles)
 
-                # Assign buckets based on percentile thresholds
-                dept_buckets = []
-                for sales in dept_sales:
-                    if sales <= percentile_values[0]:
-                        dept_buckets.append(self.volume_buckets[0])  # low
-                    elif sales <= percentile_values[1]:
-                        dept_buckets.append(self.volume_buckets[1])  # medium
-                    else:
-                        dept_buckets.append(self.volume_buckets[2])  # high
+                # Count how many thresholds each item's sales exceeds → bucket index
+                # e.g. 3 thresholds → indices 0-3 → maps to ['low','medium','high','very_high']
+                dept_buckets = [
+                    self.volume_buckets[int(np.sum(sales > percentile_values))]
+                    for sales in dept_sales
+                ]
 
                 volume_buckets.extend(dept_buckets)
 

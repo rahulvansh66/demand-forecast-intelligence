@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a retail demand forecasting copilot that provides ML-driven demand forecasting, pricing insights, and risk analytics with an agentic decision copilot using the Walmart M5 dataset. The project focuses on three core components:
+This is a demand forecast intelligence system that provides ML-driven demand forecasting, pricing insights, and risk analytics with an agentic decision copilot using the Walmart M5 dataset. The project focuses on three core components:
 
 1. **Demand Forecasting** - Predict future product demand for store-item combinations
 2. **Demand Behavior Profiling** - Generate multi-label profiles (trend, seasonality, variability, movement type) for products

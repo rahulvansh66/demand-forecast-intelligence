@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document provides comprehensive schema documentation for the Walmart M5 dataset used in the retail demand forecasting copilot. The dataset originates from the Kaggle M5 Forecasting Accuracy competition and serves as the foundation for ML-driven demand forecasting, pricing insights, and risk analytics.
+This document provides comprehensive schema documentation for the Walmart M5 dataset used in the demand forecast intelligence system. The dataset originates from the Kaggle M5 Forecasting Accuracy competition and serves as the foundation for ML-driven demand forecasting, pricing insights, and risk analytics.
 
 The dataset spans from January 29, 2011 to June 19, 2016 (1,969 days total) and contains hierarchical sales data for Walmart stores across California (CA), Texas (TX), and Wisconsin (WI). Each CSV file represents a logical table in our data architecture, with clear relationships enabling comprehensive demand analysis.
 

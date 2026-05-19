@@ -152,6 +152,55 @@ def _spearmanr(x, y):
     return _pearsonr(x_ranks, y_ranks)
 
 
+def _ks_2samp(x, y):
+    """
+    Two-sample Kolmogorov-Smirnov test without scipy.
+
+    Computes the KS statistic as the maximum absolute difference between the
+    two empirical CDFs evaluated at every observed value in the combined
+    sample, then derives a p-value via the standard asymptotic approximation
+    of the Kolmogorov distribution.
+
+    Parameters
+    ----------
+    x, y : array-like
+        The two independent samples to compare. NaN values are dropped.
+
+    Returns
+    -------
+    tuple
+        (ks_statistic, p_value)
+        ks_statistic : float in [0, 1] — 0 means identical distributions.
+        p_value      : float in [0, 1] — small value means distributions differ.
+    """
+    x = np.array(x, dtype=float)
+    y = np.array(y, dtype=float)
+
+    # Drop NaNs
+    x = x[~np.isnan(x)]
+    y = y[~np.isnan(y)]
+
+    if len(x) == 0 or len(y) == 0:
+        return 0.0, 1.0
+
+    x = np.sort(x)
+    y = np.sort(y)
+
+    # Evaluate both empirical CDFs at every point in the pooled sample
+    all_vals = np.concatenate([x, y])
+    cdf_x = np.searchsorted(x, all_vals, side='right') / len(x)
+    cdf_y = np.searchsorted(y, all_vals, side='right') / len(y)
+
+    d_stat = float(np.max(np.abs(cdf_x - cdf_y)))
+
+    # Asymptotic p-value: P(D > d) ≈ 2·exp(-2·n_eff·d²)
+    # where n_eff = n1*n2 / (n1+n2) is the effective sample size
+    n_eff = len(x) * len(y) / (len(x) + len(y))
+    p_value = float(np.clip(2.0 * np.exp(-2.0 * n_eff * d_stat ** 2), 0.0, 1.0))
+
+    return d_stat, p_value
+
+
 @dataclass
 class ValidationResult:
     """Container for validation metric results."""
@@ -265,8 +314,10 @@ class ValidationMetrics:
         Notes
         -----
         Uses chi-square test for independence to compare categorical distributions.
-        For continuous variables, data is binned into quantiles before testing.
-        P-values are adjusted using Bonferroni correction for multiple testing.
+        For continuous variables, the two-sample Kolmogorov-Smirnov test is used
+        directly on the raw values — no binning required. The KS test is sensitive
+        to any difference in the distribution (location, scale, or shape) and avoids
+        the information loss introduced by arbitrary bin boundaries.
         """
         logger.info("Calculating distribution comparison metrics")
 
@@ -313,60 +364,39 @@ class ValidationMetrics:
                     'error': str(e)
                 }
 
-        # Test continuous distributions using binned approach
+        # Test continuous distributions using two-sample KS test
+        # KS test is preferred over binned chi-square because it is non-parametric,
+        # does not require binning choices, and is sensitive to differences anywhere
+        # in the distribution (location, scale, shape).
         continuous_vars = ['avg_sales', 'zero_sales_ratio']
 
         for var in continuous_vars:
             if var in self.original_data.columns and var in self.sample_data.columns:
                 try:
-                    # Create bins based on original data quantiles
-                    original_values = self.original_data[var].dropna()
-                    sample_values = self.sample_data[var].dropna()
+                    original_values = self.original_data[var].replace([np.inf, -np.inf], np.nan).dropna()
+                    sample_values = self.sample_data[var].replace([np.inf, -np.inf], np.nan).dropna()
 
                     if len(original_values) == 0 or len(sample_values) == 0:
                         continue
 
-                    # Use quantile-based binning (10 bins)
-                    n_bins = min(10, len(original_values.unique()))
-                    bins = np.quantile(original_values, np.linspace(0, 1, n_bins + 1))
-                    bins = np.unique(bins)  # Remove duplicate bin edges
-
-                    if len(bins) < 2:
-                        continue
-
-                    # Bin both datasets
-                    original_binned = pd.cut(original_values, bins=bins, include_lowest=True)
-                    sample_binned = pd.cut(sample_values, bins=bins, include_lowest=True)
-
-                    # Get counts for each bin
-                    original_counts = original_binned.value_counts().sort_index()
-                    sample_counts = sample_binned.value_counts().sort_index()
-
-                    # Align bins
-                    all_bins = original_counts.index.union(sample_counts.index)
-                    original_aligned = original_counts.reindex(all_bins, fill_value=0)
-                    sample_aligned = sample_counts.reindex(all_bins, fill_value=0)
-
-                    # Chi-square test on binned data
-                    contingency_table = np.array([original_aligned.values, sample_aligned.values])
-                    chi2_stat, p_value, dof, expected = _chi2_contingency(contingency_table)
+                    ks_stat, p_value = _ks_2samp(original_values.values, sample_values.values)
 
                     continuous_tests[var] = {
-                        'chi2_statistic': float(chi2_stat),
+                        'ks_statistic': float(ks_stat),
                         'p_value': float(p_value),
-                        'degrees_of_freedom': int(dof),
                         'significant': p_value < self.significance_level,
-                        'bins_used': len(bins) - 1,
+                        'original_n': int(len(original_values)),
+                        'sample_n': int(len(sample_values)),
                         'original_range': [float(original_values.min()), float(original_values.max())],
                         'sample_range': [float(sample_values.min()), float(sample_values.max())]
                     }
 
-                    logger.debug(f"Binned distribution test for {var}: χ²={chi2_stat:.3f}, p={p_value:.4f}")
+                    logger.debug(f"KS test for {var}: D={ks_stat:.4f}, p={p_value:.4f}")
 
                 except Exception as e:
-                    logger.warning(f"Failed to compute binned distribution test for {var}: {e}")
+                    logger.warning(f"Failed to compute KS test for {var}: {e}")
                     continuous_tests[var] = {
-                        'chi2_statistic': np.nan,
+                        'ks_statistic': np.nan,
                         'p_value': np.nan,
                         'significant': True,
                         'error': str(e)

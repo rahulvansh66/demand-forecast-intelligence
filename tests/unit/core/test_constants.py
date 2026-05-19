@@ -13,7 +13,7 @@ def test_project_paths_initialization():
     """Test ProjectPaths creates correct directory structure."""
     paths = ProjectPaths()
 
-    assert paths.PROJECT_ROOT.name == "retail-demand-forecast-copilot"
+    assert paths.PROJECT_ROOT.name == "demand_forecast_intelligence"
     assert paths.DATA_RAW.name == "raw"
     assert paths.CONFIGS.name == "configs"
 

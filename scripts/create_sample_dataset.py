@@ -43,6 +43,7 @@ Usage Examples:
 import argparse
 import sys
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 import pandas as pd
@@ -363,20 +364,260 @@ def display_configuration(config: SamplingConfig, data_dir: Path, output_dir: Pa
     logger.info("=" * 60)
 
 
-def generate_validation_report(results: Dict[str, Any], logger: logging.Logger) -> None:
+def _compute_quality_metrics(
+    sample_items: Any,
+    metadata: Dict[str, Any],
+    coverage_stats: Dict[str, Any],
+) -> Dict[str, float]:
+    """
+    Compute the four quality metrics used in the validation report.
+
+    Each metric is a float in [0, 1] where 1.0 is perfect:
+
+    - target_achievement  : 1 minus the fractional deviation from the target
+                            count (penalises both over- and under-shoot).
+    - strata_coverage     : fraction of behavioural strata represented.
+    - dept_proportionality: how closely the per-department item proportions
+                            in the sample match those in the population
+                            (1.0 = identical proportions; degrades as depts
+                            become over- or under-represented).
+    - geographic_completeness: average of state coverage and store coverage
+                               ratios (replaces the former binary 1.0/0.8).
+    """
+    actual = len(sample_items)
+    target = metadata['target_item_count']
+
+    # --- 1. Target achievement (symmetric penalty for over- AND under-shoot) ---
+    target_achievement = max(0.0, 1.0 - abs(actual - target) / target)
+
+    # --- 2. Strata coverage (fraction of strata represented) ---
+    strata_coverage = (
+        metadata['sample_stats']['strata_coverage']
+        / metadata['population_stats']['total_strata']
+    )
+
+    # --- 3. Dept proportionality (population-weighted deviation) ---
+    pop_dept = metadata['population_stats']['dept_distribution']
+    total_pop = sum(pop_dept.values()) or 1
+    total_sample = actual or 1
+    sample_dept = sample_items['dept_id'].value_counts().to_dict()
+    all_depts = set(pop_dept) | set(sample_dept)
+    dept_proportionality = max(
+        0.0,
+        1.0 - 0.5 * sum(
+            abs(
+                sample_dept.get(d, 0) / total_sample
+                - pop_dept.get(d, 0) / total_pop
+            )
+            for d in all_depts
+        ),
+    )
+
+    # --- 4. Geographic completeness (state ratio + store ratio averaged) ---
+    geo = coverage_stats['geographic_coverage']
+    state_ratio = (
+        geo['states_in_sample'] / geo['states_in_population']
+        if geo['states_in_population'] > 0 else 1.0
+    )
+    store_ratio = (
+        geo['stores_in_sample'] / geo['stores_in_population']
+        if geo['stores_in_population'] > 0 else 1.0
+    )
+    geographic_completeness = (state_ratio + store_ratio) / 2
+
+    return {
+        'target_achievement': target_achievement,
+        'strata_coverage': strata_coverage,
+        'dept_proportionality': dept_proportionality,
+        'geographic_completeness': geographic_completeness,
+    }
+
+
+def _build_validation_markdown(results: Dict[str, Any]) -> str:
+    """
+    Build a markdown string from sample generation results.
+
+    Args:
+        results: Dictionary containing sampling results from SampleGenerator.
+
+    Returns:
+        Formatted markdown string suitable for writing to a .md file.
+    """
+    sample_items = results['sample_items']
+    metadata = results['sampling_metadata']
+    coverage_stats = results['coverage_stats']
+    dept_dist = sample_items['dept_id'].value_counts().to_dict()
+
+    quality_metrics = _compute_quality_metrics(sample_items, metadata, coverage_stats)
+    overall_quality = sum(quality_metrics.values()) / len(quality_metrics)
+    quality_label = 'EXCELLENT' if overall_quality >= 0.9 else 'GOOD' if overall_quality >= 0.8 else 'ACCEPTABLE'
+
+    geo = coverage_stats['geographic_coverage']
+    biz = coverage_stats['business_coverage']
+
+    lines = []
+
+    lines.append("# Sample Dataset Validation Report")
+    lines.append("")
+    lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"**Random Seed:** {metadata['random_seed']}")
+    lines.append(f"**Sampling Method:** `{metadata['sampling_method']}`")
+    lines.append("")
+
+    # Overall quality banner
+    lines.append("---")
+    lines.append("")
+    lines.append(f"## Overall Quality Score: {overall_quality:.2f} / 1.00 — {quality_label}")
+    lines.append("")
+    lines.append("| Metric | Score |")
+    lines.append("|---|---|")
+    for metric_name, score in quality_metrics.items():
+        lines.append(f"| {metric_name.replace('_', ' ').title()} | {score:.3f} |")
+    lines.append("")
+
+    # Sample quality summary
+    lines.append("---")
+    lines.append("")
+    lines.append("## Sample Quality Summary")
+    lines.append("")
+    lines.append(f"| Field | Value |")
+    lines.append("|---|---|")
+    lines.append(f"| Items Selected | {len(sample_items):,} |")
+    lines.append(f"| Target Item Count | {metadata['target_item_count']:,} |")
+    lines.append(f"| Target Achievement | {len(sample_items) / metadata['target_item_count']:.1%} |")
+    lines.append(f"| Population Items | {metadata['population_stats']['total_items']:,} |")
+    lines.append(f"| Population Reduction | {coverage_stats['reduction_stats']['item_reduction']:.1%} |")
+    lines.append(f"| Row Reduction | {coverage_stats['reduction_stats']['row_reduction']:.1%} |")
+    lines.append(f"| Strata Covered | {metadata['sample_stats']['strata_coverage']} / {metadata['population_stats']['total_strata']} |")
+    lines.append("")
+
+    # Behavioral diversity
+    lines.append("---")
+    lines.append("")
+    lines.append("## Behavioral Diversity")
+    lines.append("")
+
+    lines.append("### Volume Distribution")
+    lines.append("")
+    lines.append("| Bucket | Items | % of Sample |")
+    lines.append("|---|---|---|")
+    volume_dist = sample_items['volume_bucket'].value_counts().to_dict()
+    for bucket, count in sorted(volume_dist.items()):
+        lines.append(f"| {bucket.title()} | {count:,} | {count / len(sample_items) * 100:.1f}% |")
+    lines.append("")
+
+    lines.append("### Intermittency Patterns")
+    lines.append("")
+    lines.append("| Pattern | Items | % of Sample |")
+    lines.append("|---|---|---|")
+    intermittency_dist = sample_items['intermittency_class'].value_counts().to_dict()
+    for pattern, count in sorted(intermittency_dist.items()):
+        lines.append(f"| {pattern.title()} | {count:,} | {count / len(sample_items) * 100:.1f}% |")
+    lines.append("")
+
+    lines.append("### Lifecycle Stages")
+    lines.append("")
+    lines.append("| Stage | Items | % of Sample |")
+    lines.append("|---|---|---|")
+    lifecycle_dist = sample_items['lifecycle_stage'].value_counts().to_dict()
+    for stage, count in sorted(lifecycle_dist.items()):
+        lines.append(f"| {stage.title()} | {count:,} | {count / len(sample_items) * 100:.1f}% |")
+    lines.append("")
+
+    # Geographic coverage
+    lines.append("---")
+    lines.append("")
+    lines.append("## Geographic Coverage")
+    lines.append("")
+    lines.append("| Dimension | Sample | Population | Status |")
+    lines.append("|---|---|---|---|")
+    states_status = "COMPLETE" if geo['states_in_sample'] == geo['states_in_population'] else "PARTIAL"
+    stores_status = "COMPLETE" if geo['stores_in_sample'] == geo['stores_in_population'] else "PARTIAL"
+    lines.append(f"| States | {geo['states_in_sample']} | {geo['states_in_population']} | {states_status} |")
+    lines.append(f"| Stores | {geo['stores_in_sample']} | {geo['stores_in_population']} | {stores_status} |")
+    lines.append(f"| Departments | {biz['depts_in_sample']} | {biz['depts_in_population']} | {'COMPLETE' if biz['depts_in_sample'] == biz['depts_in_population'] else 'PARTIAL'} |")
+    lines.append(f"| Categories | {biz['categories_in_sample']} | {biz['categories_in_population']} | {'COMPLETE' if biz['categories_in_sample'] == biz['categories_in_population'] else 'PARTIAL'} |")
+    lines.append("")
+
+    # Department coverage
+    lines.append("---")
+    lines.append("")
+    lines.append("## Department Coverage")
+    lines.append("")
+    lines.append("| Department | Items | % of Sample |")
+    lines.append("|---|---|---|")
+    for dept, count in sorted(dept_dist.items()):
+        lines.append(f"| {dept} | {count:,} | {count / len(sample_items) * 100:.1f}% |")
+    lines.append("")
+
+    # Anti-bias verification
+    lines.append("---")
+    lines.append("")
+    lines.append("## Anti-Bias Verification")
+    lines.append("")
+    lines.append("| Check | Status |")
+    lines.append("|---|---|")
+    for key, value in metadata['bias_prevention'].items():
+        lines.append(f"| {key.replace('_', ' ').title()} | {value} |")
+    lines.append("")
+
+    # Configuration snapshot
+    lines.append("---")
+    lines.append("")
+    lines.append("## Configuration Snapshot")
+    lines.append("")
+    cfg = metadata['config_snapshot']
+    lines.append("| Parameter | Value |")
+    lines.append("|---|---|")
+    lines.append(f"| Min per Department | {cfg['min_per_dept']} |")
+    lines.append(f"| Min per Stratum | {cfg['min_per_stratum']} |")
+    lines.append(f"| Volume Percentiles | {cfg['volume_percentiles']} |")
+    lines.append(f"| Intermittency Thresholds | {cfg['intermittency_thresholds']} |")
+    lines.append("")
+
+    # Generated files
+    if 'file_paths' in results:
+        lines.append("---")
+        lines.append("")
+        lines.append("## Generated Files")
+        lines.append("")
+        lines.append("| Type | Path | Size |")
+        lines.append("|---|---|---|")
+        for file_type, file_path in results['file_paths'].items():
+            p = Path(file_path)
+            if p.exists():
+                size_mb = p.stat().st_size / (1024 * 1024)
+                lines.append(f"| {file_type.title()} | `{file_path}` | {size_mb:.1f} MB |")
+            else:
+                lines.append(f"| {file_type.title()} | `{file_path}` | FILE NOT FOUND |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_validation_report(
+    results: Dict[str, Any],
+    logger: logging.Logger,
+    report_output_dir: Optional[Path] = None
+) -> Optional[Path]:
     """
     Generate comprehensive validation report for sample dataset quality.
 
     Creates detailed analysis of sampling results including statistical
-    metrics, bias prevention verification, and coverage validation.
-    This report provides audit trail evidence that sampling was performed
-    correctly and produces high-quality representative datasets.
+    metrics, bias prevention verification, and coverage validation. The
+    report is both printed to the logger and saved as a markdown file in
+    docs/outcomes-info/ for persistent audit trail documentation.
 
     Args:
-        results: Dictionary containing sampling results from SampleGenerator
+        results: Dictionary containing sampling results from SampleGenerator.
                 Includes sample_items, allocation_summary, sampling_metadata,
-                file_paths, and coverage_stats from generation process
-        logger: Logger instance for formatted report output
+                file_paths, and coverage_stats from generation process.
+        logger: Logger instance for formatted report output.
+        report_output_dir: Directory where the markdown report will be saved.
+                          Defaults to <project_root>/docs/outcomes-info/.
+
+    Returns:
+        Path to the written markdown report file, or None if writing failed.
 
     Report Components:
     1. Sample Quality Metrics - statistical measures of representativeness
@@ -384,12 +625,6 @@ def generate_validation_report(results: Dict[str, Any], logger: logging.Logger) 
     3. Geographic Coverage - store/state representation validation
     4. Anti-Bias Evidence - documentation of random sampling approach
     5. File Generation Summary - output file locations and sizes
-
-    Business Value:
-    The validation report serves as quality assurance documentation that
-    demonstrates the sample dataset is suitable for POC validation and
-    model development. It provides confidence that results will be
-    representative of real-world performance across diverse demand patterns.
     """
     logger.info("=" * 60)
     logger.info("SAMPLE DATASET VALIDATION REPORT")
@@ -411,21 +646,18 @@ def generate_validation_report(results: Dict[str, Any], logger: logging.Logger) 
     # Behavioral Diversity Analysis - verification of pattern representation
     logger.info("BEHAVIORAL DIVERSITY:")
 
-    # Volume distribution across sample
     volume_dist = sample_items['volume_bucket'].value_counts().to_dict()
     logger.info("  Volume Distribution:")
     for bucket, count in sorted(volume_dist.items()):
         percentage = count / len(sample_items) * 100
         logger.info(f"    {bucket.title()}: {count:,} items ({percentage:.1f}%)")
 
-    # Intermittency pattern coverage
     intermittency_dist = sample_items['intermittency_class'].value_counts().to_dict()
     logger.info("  Intermittency Patterns:")
     for pattern, count in sorted(intermittency_dist.items()):
         percentage = count / len(sample_items) * 100
         logger.info(f"    {pattern.title()}: {count:,} items ({percentage:.1f}%)")
 
-    # Lifecycle stage representation
     lifecycle_dist = sample_items['lifecycle_stage'].value_counts().to_dict()
     logger.info("  Lifecycle Stages:")
     for stage, count in sorted(lifecycle_dist.items()):
@@ -470,19 +702,37 @@ def generate_validation_report(results: Dict[str, Any], logger: logging.Logger) 
         logger.info("")
 
     # Quality Score Calculation - overall assessment
-    # This provides a single metric for sample quality evaluation
-    quality_metrics = {
-        'target_achievement': len(sample_items) / metadata['target_item_count'],
-        'strata_coverage': metadata['sample_stats']['strata_coverage'] / metadata['population_stats']['total_strata'],
-        'dept_coverage': len(dept_dist) / len(metadata['population_stats']['dept_distribution']),
-        'geographic_completeness': 1.0 if coverage_stats['coverage_complete'] else 0.8
-    }
+    quality_metrics = _compute_quality_metrics(sample_items, metadata, coverage_stats)
 
     overall_quality = sum(quality_metrics.values()) / len(quality_metrics)
     logger.info(f"OVERALL QUALITY SCORE: {overall_quality:.2f}/1.00 "
                f"({'EXCELLENT' if overall_quality >= 0.9 else 'GOOD' if overall_quality >= 0.8 else 'ACCEPTABLE'})")
+    for metric_name, score in quality_metrics.items():
+        logger.info(f"  {metric_name.replace('_', ' ').title()}: {score:.3f}")
 
     logger.info("=" * 60)
+
+    # Persist report as markdown file
+    # Resolve output directory: explicit arg → default docs/outcomes-info/
+    if report_output_dir is None:
+        script_dir = Path(__file__).parent
+        project_root = script_dir.parent
+        report_output_dir = project_root / "docs" / "outcomes-info"
+
+    try:
+        report_output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        report_path = report_output_dir / f"sample_validation_report_{timestamp}.md"
+
+        md_content = _build_validation_markdown(results)
+        report_path.write_text(md_content, encoding="utf-8")
+
+        logger.info(f"Validation report saved to: {report_path}")
+        return report_path
+
+    except Exception as e:
+        logger.warning(f"Failed to save markdown validation report: {e}")
+        return None
 
 
 def main():
@@ -603,7 +853,12 @@ def main():
 
         # Generate detailed validation report if requested
         if args.validate:
-            generate_validation_report(results, logger)
+            script_dir = Path(__file__).parent
+            project_root = script_dir.parent
+            generate_validation_report(
+                results, logger,
+                report_output_dir=project_root / "docs" / "outcomes-info"
+            )
 
         # Next steps guidance for POC development
         logger.info("")

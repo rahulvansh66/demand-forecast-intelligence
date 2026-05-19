@@ -82,7 +82,7 @@ def test_behavioral_thresholds():
 - [ ] **Step 3: Run test to verify it fails**
 
 ```bash
-cd /Users/rahul.vansh/Documents/Personal/retail-demand-forecast-copilot
+cd /Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence
 python -m pytest tests/unit/data/sampling/test_config.py::test_sampling_config_creation -v
 ```
 

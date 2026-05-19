@@ -88,16 +88,17 @@ class SampleGenerator:
         # The stratifier handles the core anti-bias mechanism through
         # multi-dimensional behavioral classification
 
-        # Create volume bucket names for stratifier (always use low, medium, high for simplicity)
-        volume_buckets = ['low', 'medium', 'high']
-        # Use simplified percentiles that work with 3 buckets
-        volume_percentiles = [33, 67]  # Create low (0-33), medium (33-67), high (67-100)
+        # Volume bucket names — 4 labels matching the 4 strata from [0,25,75,95,100] config
+        volume_buckets = ['low', 'medium', 'high', 'very_high']
+        # Strip sentinel boundaries (0 and 100) from config; BehavioralStratifier
+        # needs only the inner cut points as np.percentile thresholds
+        volume_percentiles = [p for p in config.volume_percentiles if 0 < p < 100]
 
-        # Map SamplingConfig keys to BehavioralStratifier expected format
+        # Map SamplingConfig lifecycle_windows to BehavioralStratifier expected format
         lifecycle_windows = {
-            'early_period': 365,  # Days for early lifecycle analysis
-            'late_period': 365,   # Days for late lifecycle analysis
-            'min_active_days': 30  # Minimum activity for classification
+            'early_period':   config.lifecycle_windows['early_period_days'],
+            'late_period':    config.lifecycle_windows['late_period_days'],
+            'min_active_days': config.lifecycle_windows['min_active_days']
         }
 
         # Convert intermittency list to dictionary format expected by stratifier
@@ -579,14 +580,19 @@ class SampleGenerator:
             }
         }
 
-        # Check if coverage is complete
+        # Check if coverage is complete — requires both states AND stores to be fully covered
+        geo = coverage_stats['geographic_coverage']
         geo_complete = (
-            coverage_stats['geographic_coverage']['states_in_sample'] ==
-            coverage_stats['geographic_coverage']['states_in_population']
+            geo['states_in_sample'] == geo['states_in_population']
+            and geo['stores_in_sample'] == geo['stores_in_population']
         )
 
         coverage_stats['coverage_complete'] = geo_complete
 
-        logger.info(f"Coverage validation: Geographic complete = {geo_complete}")
+        logger.info(
+            f"Coverage validation: Geographic complete = {geo_complete} "
+            f"(states {geo['states_in_sample']}/{geo['states_in_population']}, "
+            f"stores {geo['stores_in_sample']}/{geo['stores_in_population']})"
+        )
 
         return coverage_stats

@@ -60,15 +60,16 @@ class SamplingConfig:
                          Critical for unbiased sampling - only uses historical data
                          available at prediction time.
 
-        volume_percentiles: Percentile thresholds for volume-based stratification.
-                           Default [0,25,75,95,100] creates 4 volume strata:
+        volume_percentiles: Percentile boundaries for volume-based stratification.
+                           Default [0, 25, 75, 95, 100] creates 4 volume strata:
                            - Low volume: 0-25th percentile (slow-moving products)
                            - Medium volume: 25-75th percentile (steady sellers)
                            - High volume: 75-95th percentile (fast-moving products)
                            - Very high volume: 95-100th percentile (top sellers)
 
-                           This distribution captures the heavy-tailed nature of
-                           retail sales where few items generate most volume.
+                           The 0 and 100 endpoints are semantic boundaries only.
+                           SampleGenerator strips them before passing inner cut
+                           points to BehavioralStratifier as np.percentile thresholds.
 
         intermittency_thresholds: Ratio thresholds for intermittency classification.
                                  Default [0.2, 0.6] creates 3 intermittency levels:
@@ -91,6 +92,13 @@ class SamplingConfig:
                              products with sufficient history for reliable forecasting.
                              These temporal patterns help stratify products by
                              lifecycle stage, which affects demand predictability.
+
+        lifecycle_windows: Rolling window sizes (in days) used by BehavioralStratifier
+                          to compare early vs late period sales activity per item.
+                          - early_period_days: Days from start to measure early sales (default 365)
+                          - late_period_days: Days from end to measure late sales (default 365)
+                          - min_active_days: Minimum nonzero-sale days required to classify
+                                            a product's lifecycle stage (default 30)
 
         min_per_dept: Minimum number of items required per department.
                      Default 30 ensures adequate representation across M5's
@@ -143,6 +151,13 @@ class SamplingConfig:
         "late_start": "d_1000",       # Start of late lifecycle phase
         "longrun_min_span": 900,      # Minimum span for long-running products
         "discontinued_cutoff": "d_1700"  # Cutoff for discontinued products
+    })
+
+    # Lifecycle windows - rolling window sizes for BehavioralStratifier activity analysis
+    lifecycle_windows: Dict[str, int] = field(default_factory=lambda: {
+        "early_period_days": 365,   # Days from start used to measure early-period sales
+        "late_period_days": 365,    # Days from end used to measure late-period sales
+        "min_active_days": 30       # Min nonzero-sale days required for lifecycle classification
     })
 
     def __post_init__(self):
@@ -219,3 +234,13 @@ class SamplingConfig:
         # Validate longrun_min_span - must be positive for meaningful analysis
         if self.lifecycle_thresholds["longrun_min_span"] <= 0:
             raise ValueError("lifecycle_thresholds['longrun_min_span'] must be positive")
+
+        # Validate lifecycle_windows - must contain required keys with positive integer values
+        required_window_keys = {"early_period_days", "late_period_days", "min_active_days"}
+        if not all(key in self.lifecycle_windows for key in required_window_keys):
+            raise ValueError("lifecycle_windows must contain all required keys: " +
+                           ", ".join(sorted(required_window_keys)))
+
+        for key in required_window_keys:
+            if self.lifecycle_windows[key] <= 0:
+                raise ValueError(f"lifecycle_windows['{key}'] must be positive")
