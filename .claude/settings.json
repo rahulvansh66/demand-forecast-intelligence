@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/unit/core/test_constants.py -v)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:writing-plans:*)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Skill(superpowers:subagent-driven-development:*)",
+      "Bash(python -m pytest tests/unit/data/sampling/test_config.py -v)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Read(docs/my-docs/**)"
+    ]
+  }
+}

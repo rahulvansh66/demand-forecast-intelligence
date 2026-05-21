@@ -1,0 +1,9 @@
+- Busniess insights
+- Business recommendations
+- Recommendations for data preprocessing such as following but not limited to..
+- Data cleaning needed
+- Features to engineer
+- Variables to drop
+- Segments worth deeper analysis
+- Risks or limitations
+- Modeling approach for segmentations 

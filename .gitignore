@@ -6,6 +6,7 @@ data/
 
 # Python
 __pycache__/
+.venv/
 *.py[cod]
 *$py.class
 *.so
@@ -32,10 +33,6 @@ wheels/
 *.swp
 *.swo
 *~
-
-# Claude Code Settings
-.claude/settings.json
-.claude/settings.local.json
 
 # OS generated files
 .DS_Store

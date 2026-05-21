@@ -24,11 +24,27 @@ Issues = "https://github.com/rahulvansh66/demand-forecast-intelligence/issues"
 
 [project.optional-dependencies]
 dev = [
+    "pre-commit>=3.0.0",
+]
+test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+]
+lint = [
     "black>=23.0.0",
     "isort>=5.12.0",
     "mypy>=1.5.0",
+    "ruff>=0.4.0",
+]
+jupyternotebook = [
+    "ipykernel>=6.0.0",
+    "jupyter>=1.0.0",
+    "matplotlib>=3.7.0",
+    "plotly>=5.0.0",
+    "scipy>=1.10.0",
+    "seaborn>=0.12.0",
+    "statsmodels>=0.14.0",
+    "tqdm>=4.0.0",
 ]
 
 [tool.setuptools]

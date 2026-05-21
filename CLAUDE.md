@@ -2,13 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important: File Access Restrictions
+
+**NEVER access or read files from `docs/my-docs/` directory.** This directory contains outdated or misleading information that should not be used for project understanding or CLAUDE.md updates. Only use `docs/project-info/` for authoritative project documentation.
+
 ## Project Overview
 
-This is a demand forecast intelligence system that provides ML-driven demand forecasting, pricing insights, and risk analytics with an agentic decision copilot using the Walmart M5 dataset. The project focuses on three core components:
-
-1. **Demand Forecasting** - Predict future product demand for store-item combinations
-2. **Demand Behavior Profiling** - Generate multi-label profiles (trend, seasonality, variability, movement type) for products
-3. **GenAI-based Business Insight Generation** - Convert ML outputs into actionable business insights
+A retail intelligence system that predicts future product-store sales, segments products by demand behavior, and converts ML outputs into business recommendations using an LLM.
 
 ## Data Architecture
 
@@ -18,50 +18,77 @@ The project uses the Walmart M5 dataset with this data flow:
 - **Processing unit**: Each `item_id + store_id` combination is treated as one demand series
 - **Static input format**: Store ID, Item ID, Forecast Horizon (e.g., "CA_1", "FOODS_3_090", "7 days")
 
-## ML Pipeline Structure
+## Development Environment
 
-### Feature Engineering Strategy
-- **Demand behavior features**: avg_sales, std_sales, zero_sales_ratio, cv_sales (Coefficient of Variation)
-- **Trend analysis**: Compare recent vs historical averages (recent_avg_28 / older_avg)
-- **Seasonality detection**: Monthly patterns, weekend effects, event/holiday impacts
-- **Variability handling**: Special logic for low-demand products (avg < 1 unit or >70% zero-sales days)
+### Setup Commands
 
-### Demand Segmentation Approach
-Products are clustered into business segments:
-- **Stable Products** - Regular, predictable sales
-- **Fast-Moving Products** - High volume, frequent sales  
-- **Intermittent Products** - Irregular, low-frequency sales
-- **Seasonal Products** - Event/time-driven demand spikes
+```bash
+# Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-Use `RobustScaler()` over `StandardScaler()` due to sales outliers in M5 dataset.
+# Create and activate virtual environment
+uv venv
+source .venv/bin/activate
 
-### Model Architecture Considerations
-- **Forecasting models** should incorporate lag features, rolling averages, day-of-week patterns, and calendar effects
-- **Behavior profiling** uses multi-label classification rather than single clustering
-- **Variability calculation**: Handle CV instability when average sales near zero (see `docs/handle_variablity.md`)
+# Install dependencies for different use cases
+uv sync                           # Runtime dependencies only
+uv sync --extra jupyternotebook  # Add Jupyter notebook dependencies
+uv sync --extra lint             # Add linting/formatting tools
+uv sync --extra test             # Add testing tools
+uv sync --all-extras             # Full development environment
 
-## Implementation Sequence
+# Register Jupyter kernel
+uv run python -m ipykernel install --user --name demand-forecast-intelligence --display-name "Python (demand-forecast-intelligence)"
+```
 
-The project follows this development pipeline (see `docs/implementation-sequence.md`):
+### Code Quality Commands
 
-1. **Data Collection & Sampling** → **Data Sanity Checks** → **EDA** 
-2. **Hypothesis Testing** → **Preprocessing Pipeline** → **Training Pipeline**
-3. **Inference Pipeline** → **Model Interpretation** → **Drift Detection**
-4. **FastAPI Endpoints** → **Streamlit UI**
+```bash
+# Check code formatting and style
+uv run ruff check .              # Linting
+uv run black --check .           # Code formatting
+uv run isort --check-only .      # Import sorting
+uv run mypy src                  # Type checking
 
-### Key Implementation Notes
-- Always check for missing values and data quality BEFORE descriptive statistics
-- Handle low-demand products separately in variability calculations (CV becomes unreliable)
-- Use feature engineering focused on business-meaningful demand patterns
-- Implement proper train/test splits respecting time series nature
+# Auto-fix formatting
+uv run black .
+uv run isort .
+uv run ruff check . --fix
+```
 
-## Development Workflow
+## Source Code Architecture
 
-When implementing ML components:
-- Start with basic demand features before adding complex seasonality detection
-- Validate demand segmentation clusters make business sense, not just statistical metrics
-- Test variability labeling edge cases (zero sales, very low averages)
-- Ensure forecast outputs integrate properly with behavior profiling for GenAI insights
+### Package Structure (src/demand_forecast_intelligence/)
+
+- **core/**: Shared foundation (config, logging, constants, exceptions, utilities)
+- **data/**: Data access layer (loaders, validators, schemas, repositories, sampling)
+- **preprocessing/**: Data preparation (cleaners, transformers, features, splitters, pipelines)
+- **model_development/**: ML domains
+  - `forecasting/`: Demand forecasting model training
+  - `segmentation/`: Segmentation model training
+- **genai_business_insights/**: LLM integration for business insights
+- **pipelines/**: End-to-end orchestration workflows
+- **orchestration/**: Airflow integration helpers
+- **monitoring/**: Post-deployment monitoring (drift, data quality, performance)
+- **api/**: FastAPI backend application
+- **ui/**: Streamlit dashboard interface
+
+## Sample Dataset Generation
+
+The project includes an anti-bias sampling system to create representative datasets from M5 data:
+
+```bash
+# Generate sample dataset with default settings (1400 items, ~50% reduction)
+python scripts/create_sample_dataset.py
+
+# Custom sample size with validation report
+python scripts/create_sample_dataset.py --target-items 1000 --validate
+
+# Specify custom directories
+python scripts/create_sample_dataset.py --data-dir /path/to/m5/data --output-dir /path/to/output
+```
+
+The sampling uses **behavioral stratification with random selection** to prevent bias toward high-volume, stable products while ensuring challenging intermittent/sparse demand patterns are properly represented.
 
 ## Business Context
 
@@ -69,7 +96,7 @@ The system generates static insights (no chatbot interface) with this flow:
 ```
 User Input (Store ID, Item ID, Horizon) → 
 Feature Engineering → 
-Forecasting + Behavior Profiling → 
+Forecasting + Segmentation → 
 GenAI Business Insight Generation
 ```
 
