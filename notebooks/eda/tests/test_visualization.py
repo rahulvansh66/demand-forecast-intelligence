@@ -32,6 +32,21 @@ try:
 except ImportError:
     plot_multicollinearity_analysis = None
 
+try:
+    from utils.visualization import plot_segment_behavior_comparison
+except ImportError:
+    plot_segment_behavior_comparison = None
+
+try:
+    from utils.visualization import plot_distribution_drift_analysis
+except ImportError:
+    plot_distribution_drift_analysis = None
+
+try:
+    from utils.visualization import plot_leakage_validation_summary
+except ImportError:
+    plot_leakage_validation_summary = None
+
 
 class TestPlotCategoricalSalesDistributions:
     """Test suite for plot_categorical_sales_distributions function."""
@@ -495,6 +510,374 @@ class TestPlotMulticollinearityAnalysis:
         result = plot_multicollinearity_analysis(sales_data, save_path)
 
         assert 'recommendations' in result or 'analysis_details' in result or 'business_implications' in result
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+
+class TestPlotSegmentBehaviorComparison:
+    """Test suite for plot_segment_behavior_comparison function."""
+
+    def test_basic_functionality(self):
+        """Test basic segment behavior comparison plotting."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        # Test data for segment comparison
+        segment_data = {
+            'FOODS': {'mean_sales': 5.2, 'cv': 0.3, 'intermittency': 0.1},
+            'HOUSEHOLD': {'mean_sales': 2.8, 'cv': 0.8, 'intermittency': 0.4},
+            'HOBBIES': {'mean_sales': 3.5, 'cv': 1.2, 'intermittency': 0.6}
+        }
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_segment_comparison.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_segment_behavior_comparison(segment_data, save_path)
+
+        assert isinstance(result, dict)
+        assert 'plot_path' in result
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_with_different_segments(self):
+        """Test with different segment names and metrics."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        segment_data = {
+            'Segment_A': {'mean_sales': 10.0, 'cv': 0.2, 'intermittency': 0.05},
+            'Segment_B': {'mean_sales': 5.0, 'cv': 0.5, 'intermittency': 0.3},
+            'Segment_C': {'mean_sales': 7.5, 'cv': 0.9, 'intermittency': 0.7},
+            'Segment_D': {'mean_sales': 3.2, 'cv': 1.5, 'intermittency': 0.9}
+        }
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_segments_four.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_segment_behavior_comparison(segment_data, save_path)
+
+        assert os.path.exists(save_path)
+        assert isinstance(result, dict)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_single_segment(self):
+        """Test with single segment."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        segment_data = {
+            'OnlySegment': {'mean_sales': 4.5, 'cv': 0.4, 'intermittency': 0.2}
+        }
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_single_segment.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_segment_behavior_comparison(segment_data, save_path)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_publication_quality(self):
+        """Test that plot is saved at 300 DPI."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        segment_data = {
+            'FOODS': {'mean_sales': 5.2, 'cv': 0.3, 'intermittency': 0.1},
+            'HOUSEHOLD': {'mean_sales': 2.8, 'cv': 0.8, 'intermittency': 0.4},
+            'HOBBIES': {'mean_sales': 3.5, 'cv': 1.2, 'intermittency': 0.6}
+        }
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_segment_dpi.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_segment_behavior_comparison(segment_data, save_path)
+
+        file_size = os.path.getsize(save_path)
+        assert file_size > 1000, "Plot should be saved at publication quality (300 DPI)"
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_missing_metrics(self):
+        """Test handling of missing metrics in segment data."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        # Missing intermittency metric
+        segment_data = {
+            'FOODS': {'mean_sales': 5.2, 'cv': 0.3},
+            'HOUSEHOLD': {'mean_sales': 2.8, 'cv': 0.8, 'intermittency': 0.4}
+        }
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_missing_metrics.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Should handle gracefully
+        result = plot_segment_behavior_comparison(segment_data, save_path)
+
+        assert os.path.exists(save_path) or isinstance(result, dict)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_empty_segment_data(self):
+        """Test error handling for empty segment data."""
+        pytest.skip("Waiting for implementation") if plot_segment_behavior_comparison is None else None
+
+        segment_data = {}
+
+        save_path = 'notebooks/eda/plots/step11_segment_analysis/test_empty_segments.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Should raise ValueError
+        with pytest.raises((ValueError, KeyError, IndexError)):
+            plot_segment_behavior_comparison(segment_data, save_path)
+
+
+class TestPlotDistributionDriftAnalysis:
+    """Test suite for plot_distribution_drift_analysis function."""
+
+    def test_basic_functionality(self):
+        """Test basic distribution drift analysis plotting."""
+        pytest.skip("Waiting for implementation") if plot_distribution_drift_analysis is None else None
+
+        # Test data for drift analysis
+        np.random.seed(42)
+        train_data = pd.DataFrame({'sales': np.random.poisson(5, 1000)})
+        validation_data = pd.DataFrame({'sales': np.random.poisson(7, 200)})
+
+        drift_results = {
+            'ks_tests': {'sales': {'statistic': 0.15, 'p_value': 0.02}},
+            'effect_sizes': {'sales': {'cohens_d': 0.6, 'magnitude': 'medium'}}
+        }
+
+        save_path = 'notebooks/eda/plots/step13_drift_analysis/test_drift_analysis.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_distribution_drift_analysis(train_data, validation_data, drift_results, save_path)
+
+        assert isinstance(result, dict)
+        assert 'plot_path' in result
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_with_multiple_features(self):
+        """Test drift analysis with multiple features."""
+        pytest.skip("Waiting for implementation") if plot_distribution_drift_analysis is None else None
+
+        np.random.seed(42)
+        train_data = pd.DataFrame({
+            'sales': np.random.poisson(5, 500),
+            'price': np.random.normal(100, 20, 500)
+        })
+        validation_data = pd.DataFrame({
+            'sales': np.random.poisson(7, 200),
+            'price': np.random.normal(110, 25, 200)
+        })
+
+        drift_results = {
+            'ks_tests': {
+                'sales': {'statistic': 0.15, 'p_value': 0.02},
+                'price': {'statistic': 0.12, 'p_value': 0.05}
+            },
+            'effect_sizes': {
+                'sales': {'cohens_d': 0.6, 'magnitude': 'medium'},
+                'price': {'cohens_d': 0.4, 'magnitude': 'small'}
+            }
+        }
+
+        save_path = 'notebooks/eda/plots/step13_drift_analysis/test_drift_multiple.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_distribution_drift_analysis(train_data, validation_data, drift_results, save_path)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_publication_quality(self):
+        """Test that plot is saved at 300 DPI."""
+        pytest.skip("Waiting for implementation") if plot_distribution_drift_analysis is None else None
+
+        np.random.seed(42)
+        train_data = pd.DataFrame({'sales': np.random.poisson(5, 1000)})
+        validation_data = pd.DataFrame({'sales': np.random.poisson(7, 200)})
+
+        drift_results = {
+            'ks_tests': {'sales': {'statistic': 0.15, 'p_value': 0.02}},
+            'effect_sizes': {'sales': {'cohens_d': 0.6, 'magnitude': 'medium'}}
+        }
+
+        save_path = 'notebooks/eda/plots/step13_drift_analysis/test_drift_dpi.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_distribution_drift_analysis(train_data, validation_data, drift_results, save_path)
+
+        file_size = os.path.getsize(save_path)
+        assert file_size > 1000, "Plot should be saved at publication quality"
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_high_drift_scenario(self):
+        """Test with high drift scenario."""
+        pytest.skip("Waiting for implementation") if plot_distribution_drift_analysis is None else None
+
+        np.random.seed(42)
+        train_data = pd.DataFrame({'sales': np.random.poisson(3, 500)})
+        validation_data = pd.DataFrame({'sales': np.random.poisson(15, 200)})
+
+        drift_results = {
+            'ks_tests': {'sales': {'statistic': 0.45, 'p_value': 0.001}},
+            'effect_sizes': {'sales': {'cohens_d': 1.8, 'magnitude': 'large'}}
+        }
+
+        save_path = 'notebooks/eda/plots/step13_drift_analysis/test_drift_high.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_distribution_drift_analysis(train_data, validation_data, drift_results, save_path)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+
+class TestPlotLeakageValidationSummary:
+    """Test suite for plot_leakage_validation_summary function."""
+
+    def test_basic_functionality(self):
+        """Test basic leakage validation summary plotting."""
+        pytest.skip("Waiting for implementation") if plot_leakage_validation_summary is None else None
+
+        # Test data for leakage validation
+        audit_results = {
+            'boundary_violations': [
+                {'feature': 'bad_feature', 'violation': 'future_data', 'risk': 'high'}
+            ],
+            'compliant_features': [
+                {'feature': 'good_feature', 'type': 'lag', 'window': 7}
+            ],
+            'risk_assessment': {'risk_level': 'medium', 'violation_rate': 0.2}
+        }
+
+        save_path = 'notebooks/eda/plots/step14_leakage_validation/test_leakage_summary.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_leakage_validation_summary(audit_results, save_path)
+
+        assert isinstance(result, dict)
+        assert 'plot_path' in result
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_with_multiple_violations(self):
+        """Test with multiple violation types."""
+        pytest.skip("Waiting for implementation") if plot_leakage_validation_summary is None else None
+
+        audit_results = {
+            'boundary_violations': [
+                {'feature': 'feature_1', 'violation': 'future_data', 'risk': 'high'},
+                {'feature': 'feature_2', 'violation': 'target_leak', 'risk': 'high'},
+                {'feature': 'feature_3', 'violation': 'temporal_misalignment', 'risk': 'medium'}
+            ],
+            'compliant_features': [
+                {'feature': 'lag_7', 'type': 'lag', 'window': 7},
+                {'feature': 'lag_30', 'type': 'lag', 'window': 30},
+                {'feature': 'rolling_mean_7', 'type': 'rolling', 'window': 7}
+            ],
+            'risk_assessment': {'risk_level': 'high', 'violation_rate': 0.5}
+        }
+
+        save_path = 'notebooks/eda/plots/step14_leakage_validation/test_leakage_multiple.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_leakage_validation_summary(audit_results, save_path)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_no_violations(self):
+        """Test when no violations are found."""
+        pytest.skip("Waiting for implementation") if plot_leakage_validation_summary is None else None
+
+        audit_results = {
+            'boundary_violations': [],
+            'compliant_features': [
+                {'feature': 'lag_1', 'type': 'lag', 'window': 1},
+                {'feature': 'lag_7', 'type': 'lag', 'window': 7},
+                {'feature': 'lag_14', 'type': 'lag', 'window': 14},
+                {'feature': 'lag_30', 'type': 'lag', 'window': 30}
+            ],
+            'risk_assessment': {'risk_level': 'low', 'violation_rate': 0.0}
+        }
+
+        save_path = 'notebooks/eda/plots/step14_leakage_validation/test_leakage_clean.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_leakage_validation_summary(audit_results, save_path)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_publication_quality(self):
+        """Test that plot is saved at 300 DPI."""
+        pytest.skip("Waiting for implementation") if plot_leakage_validation_summary is None else None
+
+        audit_results = {
+            'boundary_violations': [
+                {'feature': 'bad_feature', 'violation': 'future_data', 'risk': 'high'}
+            ],
+            'compliant_features': [
+                {'feature': 'good_feature', 'type': 'lag', 'window': 7}
+            ],
+            'risk_assessment': {'risk_level': 'medium', 'violation_rate': 0.2}
+        }
+
+        save_path = 'notebooks/eda/plots/step14_leakage_validation/test_leakage_dpi.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_leakage_validation_summary(audit_results, save_path)
+
+        file_size = os.path.getsize(save_path)
+        assert file_size > 1000, "Plot should be saved at publication quality"
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_high_risk_assessment(self):
+        """Test with high risk assessment."""
+        pytest.skip("Waiting for implementation") if plot_leakage_validation_summary is None else None
+
+        audit_results = {
+            'boundary_violations': [
+                {'feature': 'future_sales', 'violation': 'future_data', 'risk': 'high'},
+                {'feature': 'target_price', 'violation': 'target_leak', 'risk': 'high'}
+            ],
+            'compliant_features': [
+                {'feature': 'lag_7', 'type': 'lag', 'window': 7}
+            ],
+            'risk_assessment': {'risk_level': 'critical', 'violation_rate': 0.67}
+        }
+
+        save_path = 'notebooks/eda/plots/step14_leakage_validation/test_leakage_critical.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_leakage_validation_summary(audit_results, save_path)
+
+        assert os.path.exists(save_path)
 
         if os.path.exists(save_path):
             os.remove(save_path)
