@@ -6,9 +6,14 @@ features and target variables, with a focus on categorical sales patterns
 and business-meaningful statistical analysis.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List, Set
 import pandas as pd
 import numpy as np
+
+# Constants for multicollinearity analysis
+VIF_MEDIUM_THRESHOLD = 5.0
+VIF_HIGH_THRESHOLD = 10.0
+VIF_EPSILON = 0.01  # Small value to prevent division by zero
 
 
 def analyze_categorical_sales_patterns(
@@ -412,7 +417,7 @@ def compute_cross_feature_correlations(
             dept_totals[dept] += item_sales
 
         # Analyze department-category mapping
-        dept_cat_mapping = {}
+        dept_cat_mapping: Dict[str, Set[str]] = {}
         for _, row in sales_data.iterrows():
             cat = row.get('cat_id')
             dept = row.get('dept_id')
@@ -443,8 +448,8 @@ def compute_cross_feature_correlations(
 
     if 'store_id' in sales_data.columns:
         # Extract state from store_id (e.g., CA_1 -> CA)
-        state_stores = {}
-        store_totals = {}
+        state_stores: Dict[str, List[str]] = {}
+        store_totals: Dict[str, float] = {}
 
         for _, row in sales_data.iterrows():
             store_id = row.get('store_id')
@@ -613,7 +618,7 @@ def detect_multicollinearity_issues(
     # Sort by absolute correlation value (highest first)
     high_correlation_pairs = sorted(
         high_correlation_pairs,
-        key=lambda x: x['abs_correlation'],
+        key=lambda x: float(x['abs_correlation']),
         reverse=True
     )
 
@@ -626,12 +631,12 @@ def detect_multicollinearity_issues(
         avg_abs_corr = float(abs(col_correlations).mean())
 
         # VIF approximation: higher average correlation suggests higher VIF
-        vif_score = 1 / (1 - avg_abs_corr + 0.01) if avg_abs_corr < 0.99 else 100.0
+        vif_score = 1 / (1 - avg_abs_corr + VIF_EPSILON) if avg_abs_corr < 0.99 else 100.0
 
         vif_analysis[str(col)] = {
             'average_abs_correlation': avg_abs_corr,
             'vif_approximation': float(vif_score),
-            'concern_level': 'high' if vif_score > 10 else 'medium' if vif_score > 5 else 'low'
+            'concern_level': 'high' if vif_score > VIF_HIGH_THRESHOLD else 'medium' if vif_score > VIF_MEDIUM_THRESHOLD else 'low'
         }
 
     # Business implications and recommendations

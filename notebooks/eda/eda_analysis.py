@@ -17,24 +17,17 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import utility modules
-from utils.statistical_analysis import (
-    calculate_distribution_stats,
-    compute_variation_metrics,
-    analyze_outliers
-)
 from utils.correlation_analysis import (
     analyze_categorical_sales_patterns,
     compute_temporal_sales_correlations,
-    compute_snap_benefit_impact
+    compute_snap_benefit_impact,
+    compute_cross_feature_correlations,
+    detect_multicollinearity_issues
 )
 from utils.visualization import (
     plot_categorical_sales_distributions,
     plot_correlation_heatmap,
     plot_multicollinearity_analysis
-)
-from utils.correlation_analysis import (
-    compute_cross_feature_correlations,
-    detect_multicollinearity_issues
 )
 
 
@@ -157,7 +150,7 @@ def study_feature_target_relationships(
         else:
             price_data = pd.DataFrame()
 
-        print(f"Loaded datasets:")
+        print("Loaded datasets:")
         print(f"  - Sales: {len(sales_data)} rows × {len(sales_data.columns)} cols")
         print(f"  - Calendar: {len(calendar_data)} rows × {len(calendar_data.columns)} cols")
         if not price_data.empty:
@@ -243,7 +236,7 @@ def study_feature_target_relationships(
             plot_path = os.path.join(plot_dir, "category_sales_distributions.png")
             plot_results = plot_categorical_sales_distributions(transformed_data, plot_path)
             results['visualizations'] = {'category_distributions': plot_results}
-            print(f"   ✓ Generated category distribution plot")
+            print("   ✓ Generated category distribution plot")
             print(f"     Path: {plot_path}")
         except Exception as e:
             print(f"   ✗ Error generating visualization: {str(e)}")
@@ -271,7 +264,7 @@ def study_feature_target_relationships(
 
     print("\nStep 6 analysis complete!")
     print("-" * 60)
-    print(f"Summary:")
+    print("Summary:")
     print(f"  - Categories analyzed: {summary['total_categories']}")
     print(f"  - Temporal features: {summary['temporal_features_analyzed']}")
     print(f"  - SNAP states: {summary['snap_states_analyzed']}")
@@ -334,7 +327,7 @@ def study_feature_feature_relationships(
 
         sales_data = pd.read_csv(sales_path)
 
-        print(f"Loaded datasets:")
+        print("Loaded datasets:")
         print(f"  - Sales: {len(sales_data)} rows × {len(sales_data.columns)} cols")
 
     except FileNotFoundError as e:
@@ -420,7 +413,7 @@ def study_feature_feature_relationships(
                 cluster=True
             )
             visualizations['correlation_heatmap'] = heatmap_results
-            print(f"   ✓ Generated correlation heatmap")
+            print("   ✓ Generated correlation heatmap")
             print(f"     Path: {heatmap_path}")
         except Exception as e:
             print(f"   ✗ Error generating correlation heatmap: {str(e)}")
@@ -434,7 +427,7 @@ def study_feature_feature_relationships(
                 threshold=0.8
             )
             visualizations['multicollinearity_plot'] = multicollinearity_plot_results
-            print(f"   ✓ Generated multicollinearity analysis plot")
+            print("   ✓ Generated multicollinearity analysis plot")
             print(f"     Path: {multicollinearity_path}")
         except Exception as e:
             print(f"   ✗ Error generating multicollinearity plot: {str(e)}")
@@ -459,7 +452,7 @@ def study_feature_feature_relationships(
 
     print("\nStep 7 analysis complete!")
     print("-" * 60)
-    print(f"Summary:")
+    print("Summary:")
     print(f"  - Features analyzed: {summary['features_analyzed']}")
     print(f"  - High correlation pairs: {summary['high_correlation_pairs']}")
     print(f"  - Product hierarchy: {'Yes' if summary['product_hierarchy_analyzed'] else 'No'}")

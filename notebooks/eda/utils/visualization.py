@@ -13,12 +13,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, Any, Optional
-import os
+from typing import Dict, Any
 from pathlib import Path
 import warnings
 
 warnings.filterwarnings("ignore")
+
+# Constants for VIF analysis visualization
+VIF_MEDIUM_THRESHOLD = 5.0
+VIF_HIGH_THRESHOLD = 10.0
+VIF_EPSILON = 0.01  # Small value to prevent division by zero
 
 # Set style for consistent plots
 plt.style.use('default')
@@ -154,11 +158,11 @@ def plot_categorical_sales_distributions(
             }
         else:
             stats_by_category[category] = {
-                'mean': None,
-                'median': None,
-                'std': None,
-                'min': None,
-                'max': None,
+                'mean': 0.0,
+                'median': 0.0,
+                'std': 0.0,
+                'min': 0.0,
+                'max': 0.0,
                 'count': 0
             }
 
@@ -420,11 +424,11 @@ def plot_multicollinearity_analysis(
         avg_abs_corr = float(abs(col_correlations).mean())
 
         # VIF approximation
-        vif_score = 1 / (1 - avg_abs_corr + 0.01) if avg_abs_corr < 0.99 else 100.0
+        vif_score = 1 / (1 - avg_abs_corr + VIF_EPSILON) if avg_abs_corr < 0.99 else 100.0
 
         vif_results[str(col)] = {
             'vif_score': float(vif_score),
-            'concern': 'high' if vif_score > 10 else 'medium' if vif_score > 5 else 'low'
+            'concern': 'high' if vif_score > VIF_HIGH_THRESHOLD else 'medium' if vif_score > VIF_MEDIUM_THRESHOLD else 'low'
         }
 
     # Create visualization
@@ -460,8 +464,8 @@ def plot_multicollinearity_analysis(
         ]
 
         axes[1].barh(features, vif_scores, color=colors, alpha=0.7)
-        axes[1].axvline(x=5, color='orange', linestyle='--', label='Medium Concern (VIF=5)')
-        axes[1].axvline(x=10, color='red', linestyle='--', label='High Concern (VIF=10)')
+        axes[1].axvline(x=VIF_MEDIUM_THRESHOLD, color='orange', linestyle='--', label=f'Medium Concern (VIF={VIF_MEDIUM_THRESHOLD})')
+        axes[1].axvline(x=VIF_HIGH_THRESHOLD, color='red', linestyle='--', label=f'High Concern (VIF={VIF_HIGH_THRESHOLD})')
         axes[1].set_xlabel('VIF Approximation Score', fontsize=11)
         axes[1].set_title('Variance Inflation Factor (VIF) Analysis', fontsize=12, fontweight='bold')
         axes[1].legend(loc='lower right', fontsize=9)
@@ -484,7 +488,7 @@ def plot_multicollinearity_analysis(
 
         recommendations = [
             "Remove one feature from each highly correlated pair based on domain knowledge",
-            f"Features with VIF > 10 show very high correlation and should be prioritized for removal",
+            f"Features with VIF > {VIF_HIGH_THRESHOLD} show very high correlation and should be prioritized for removal",
             "Consider feature engineering or PCA for dimensionality reduction",
             "Re-evaluate feature correlations after removing problematic features"
         ]
