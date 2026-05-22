@@ -1,6 +1,6 @@
 Use brainstroming skill and plan
 
-Read and understand eda framework @docs/project-info/claude/eda_framework.md which is guide of how to perform eda and then plan the eda workflow for from step 1(Understand the problem first) to 5(Analyze individual features). 
+Read and understand eda framework @docs/project-info/claude/eda_framework.md which is guide of how to perform eda and then plan the eda workflow for from step 6 to 10(Prevously we already implemented step 1 to 5). 
 
 Add Python code to eda_analysis.py in @notebooks/EDA to generate the required plots for analysis and perform the necessary mathematical scoring, statistical calculations, and statistical tests.
 
@@ -17,7 +17,7 @@ Notes:
 - Schema information available @docs/project-info/schema-info.md
 - Perform analysis dataset stored at @data/raw, and 
 - Add comments understand code and correlate with given eda framework
-
+- In eda framework, at the start of each section it's generalised guide while end of each section or subsection there is 'Application to Demand Forecasting Project', it's context on how that generic guide can be applied to our specific project use case, you can review and brainstorm and if you feel anything is missing in application section, you can add more in plan and as well as modify current eda_framework.md to add it there as well.
 
 ====
 
