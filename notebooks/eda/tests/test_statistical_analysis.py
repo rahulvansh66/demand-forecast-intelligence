@@ -1,7 +1,13 @@
 import pytest
 import pandas as pd
 import numpy as np
-from notebooks.eda.utils.statistical_analysis import (
+import sys
+import os
+
+# Add notebooks/eda to path for testing
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.statistical_analysis import (
     calculate_distribution_stats,
     compute_variation_metrics,
     analyze_outliers,
