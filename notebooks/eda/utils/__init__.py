@@ -8,6 +8,8 @@ from . import visualization
 from . import temporal_analysis
 from . import data_quality
 from . import segment_analysis
+from . import drift_analysis
+from . import leakage_validation
 # from .data_validation import *
 # from .reporting import *
 
