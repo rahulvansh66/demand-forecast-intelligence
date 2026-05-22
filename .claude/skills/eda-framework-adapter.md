@@ -1,6 +1,6 @@
 ---
 name: eda-framework-adapter
-description: Adapt a generic EDA framework to a specific project by adding concrete, project-specific application notes. Use when user wants to customize or tailor an EDA framework for their dataset, add project context to analysis guides, or make generic EDA instructions more concrete. Essential for creating applied EDA documentation that connects theoretical concepts to real business scenarios.
+description: Adapt the specific EDA framework at docs/project-info/claude/eda_framework_original.md to project-specific contexts. ONLY trigger when user explicitly mentions this exact file path or asks to adapt "the EDA framework" while referencing this file. Do NOT trigger for general EDA framework discussions or other EDA files.
 ---
 
 # EDA Framework Adapter
