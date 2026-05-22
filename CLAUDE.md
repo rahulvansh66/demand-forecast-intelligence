@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important: File Access Restrictions
 
-**NEVER access or read files from `docs/my-docs/` directory.** This directory contains outdated or misleading information that should not be used for project understanding or CLAUDE.md updates. Only use `docs/project-info/` for authoritative project documentation.
+**NEVER access or read files from `docs/my-docs/` directory.** This directory contains outdated or misleading information that should not be used for project understanding or CLAUDE.md updates. Only use `docs/project-info/` for authoritative project documentati on.
 
 ## Project Overview
 
@@ -19,6 +19,18 @@ The project uses the Walmart M5 dataset with this data flow:
 - **Static input format**: Store ID, Item ID, Forecast Horizon (e.g., "CA_1", "FOODS_3_090", "7 days")
 
 ## Development Environment
+
+### Git Configuration
+
+Before any git commands, source the environment variables from `.env`:
+```bash
+# Source git configuration
+source .env
+git config user.name "$GIT_USER_NAME"
+git config user.email "$GIT_USER_EMAIL"
+```
+
+**Important**: Always use the git user from `.env` and never include "Co-Authored-By" lines in commit messages.
 
 ### Setup Commands
 
