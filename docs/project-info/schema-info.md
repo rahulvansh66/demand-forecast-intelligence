@@ -121,9 +121,9 @@ Comprehensive date dimension table providing calendar context, events, holidays,
 
 • **wm_yr_wk** (Integer)
   - Walmart fiscal year-week identifier
-  - Format: YYYWW (e.g., 11101 = 2011 week 1)
+  - Format: YYWWW (e.g., 11101 = fiscal year 2011, sequential week 101)
   - Links to: sell_prices.csv for weekly pricing alignment
-  - Business context: Walmart's internal calendar system for business reporting
+  - Business context: Walmart's internal calendar system using continuous week numbering
 
 • **weekday** (String)
   - Day of the week name
@@ -208,7 +208,7 @@ Comprehensive pricing data providing weekly sell prices for item-store combinati
 
 • **wm_yr_wk** (Integer)
   - Walmart fiscal year-week for price period
-  - Format: YYYWW, matches calendar.csv wm_yr_wk
+  - Format: YYWWW, matches calendar.csv wm_yr_wk (continuous sequential week numbering)
   - Links to: calendar.csv for temporal alignment
   - Business context: Weekly pricing cycles and promotional timing
 
@@ -259,7 +259,6 @@ The Walmart M5 dataset follows a hierarchical structure with clear relationships
 1. Join sales data with calendar for temporal features
 2. Join with pricing data for price elasticity analysis  
 3. Aggregate across product/geographic hierarchies as needed
-4. Generate forecasts in sample_submission.csv format
 
 **Primary Keys and Joins:**
 - **Sales tables:** id (item_id + store_id + type)
