@@ -3,9 +3,9 @@
 
 # Import modules as they are implemented:
 from . import correlation_analysis
-# from .statistical_analysis import *
+from . import statistical_analysis
+from . import visualization
 # from .data_validation import *
-# from .visualization import *
 # from .time_series_analysis import *
 # from .reporting import *
 

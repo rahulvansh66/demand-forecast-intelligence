@@ -222,3 +222,142 @@ def test_analyze_categorical_sales_patterns():
     required_fields = ['mean', 'std', 'count', 'min', 'max', 'median']
     for field in required_fields:
         assert field in result['summary_stats'], f"Summary stats should contain '{field}'"
+
+
+class TestComputeTemporalSalesCorrelations:
+    """Test suite for compute_temporal_sales_correlations function."""
+
+    def test_basic_functionality(self):
+        """Test basic temporal correlation analysis."""
+        from utils.correlation_analysis import compute_temporal_sales_correlations
+
+        # Create sample data
+        sales_data = pd.DataFrame({
+            'cat_id': ['FOODS'] * 3,
+            'd_1': [10, 12, 8],
+            'd_2': [15, 18, 12],
+            'd_3': [5, 8, 4]
+        })
+
+        calendar_data = pd.DataFrame({
+            'weekday': ['Saturday', 'Sunday', 'Monday'],
+            'date': pd.to_datetime(['2011-01-29', '2011-01-30', '2011-01-31'])
+        })
+
+        result = compute_temporal_sales_correlations(sales_data, calendar_data)
+
+        # Verify result structure
+        assert isinstance(result, dict)
+        assert 'temporal_correlations' in result
+        assert 'FOODS' in result['temporal_correlations']
+        assert 'weekday_correlation' in result['temporal_correlations']['FOODS']
+        assert 'month_correlation' in result['temporal_correlations']['FOODS']
+
+    def test_multiple_categories(self):
+        """Test with multiple categories."""
+        from utils.correlation_analysis import compute_temporal_sales_correlations
+
+        sales_data = pd.DataFrame({
+            'cat_id': ['FOODS', 'HOUSEHOLD', 'HOBBIES'] * 2,
+            'd_1': [10, 15, 20, 12, 18, 22],
+            'd_2': [15, 18, 25, 18, 20, 28]
+        })
+
+        calendar_data = pd.DataFrame({
+            'weekday': ['Saturday', 'Sunday'],
+            'date': pd.to_datetime(['2011-01-29', '2011-01-30'])
+        })
+
+        result = compute_temporal_sales_correlations(sales_data, calendar_data)
+
+        assert 'FOODS' in result['temporal_correlations']
+        assert 'HOUSEHOLD' in result['temporal_correlations']
+        assert 'HOBBIES' in result['temporal_correlations']
+
+    def test_edge_case_single_row(self):
+        """Test with single row of data."""
+        from utils.correlation_analysis import compute_temporal_sales_correlations
+
+        sales_data = pd.DataFrame({
+            'cat_id': ['FOODS'],
+            'd_1': [10],
+            'd_2': [15]
+        })
+
+        calendar_data = pd.DataFrame({
+            'weekday': ['Saturday', 'Sunday']
+        })
+
+        result = compute_temporal_sales_correlations(sales_data, calendar_data)
+
+        assert isinstance(result, dict)
+        assert 'temporal_correlations' in result
+
+
+class TestComputeSnapBenefitImpact:
+    """Test suite for compute_snap_benefit_impact function."""
+
+    def test_basic_functionality(self):
+        """Test basic SNAP benefit impact analysis."""
+        from utils.correlation_analysis import compute_snap_benefit_impact
+
+        sales_data = pd.DataFrame({
+            'cat_id': ['FOODS'] * 2,
+            'd_1': [10, 12],
+            'd_2': [15, 8],
+            'd_3': [20, 18]
+        })
+
+        calendar_data = pd.DataFrame({
+            'snap_CA': [0, 1, 0],
+            'snap_TX': [1, 0, 1]
+        })
+
+        result = compute_snap_benefit_impact(sales_data, calendar_data)
+
+        assert isinstance(result, dict)
+        assert 'snap_impact_by_state' in result
+        assert 'foods_category_analysis' in result
+
+    def test_no_foods_category(self):
+        """Test when no FOODS category exists."""
+        from utils.correlation_analysis import compute_snap_benefit_impact
+
+        sales_data = pd.DataFrame({
+            'cat_id': ['HOUSEHOLD', 'HOBBIES'],
+            'd_1': [10, 20],
+            'd_2': [15, 25]
+        })
+
+        calendar_data = pd.DataFrame({
+            'snap_CA': [0, 1]
+        })
+
+        result = compute_snap_benefit_impact(sales_data, calendar_data)
+
+        # Should return error or empty analysis
+        assert isinstance(result, dict)
+        assert 'error' in result or 'snap_impact_by_state' in result
+
+    def test_multiple_states(self):
+        """Test with multiple state SNAP columns."""
+        from utils.correlation_analysis import compute_snap_benefit_impact
+
+        sales_data = pd.DataFrame({
+            'cat_id': ['FOODS'] * 3,
+            'd_1': [100, 120, 90],
+            'd_2': [150, 180, 120],
+            'd_3': [200, 220, 180]
+        })
+
+        calendar_data = pd.DataFrame({
+            'snap_CA': [0, 1, 0],
+            'snap_TX': [1, 0, 1],
+            'snap_WI': [0, 1, 1]
+        })
+
+        result = compute_snap_benefit_impact(sales_data, calendar_data)
+
+        assert isinstance(result, dict)
+        if 'snap_impact_by_state' in result and result['snap_impact_by_state']:
+            assert len(result['snap_impact_by_state']) >= 1
