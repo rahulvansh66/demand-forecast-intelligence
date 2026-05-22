@@ -27,7 +27,15 @@ from utils.correlation_analysis import (
     compute_temporal_sales_correlations,
     compute_snap_benefit_impact
 )
-from utils.visualization import plot_categorical_sales_distributions
+from utils.visualization import (
+    plot_categorical_sales_distributions,
+    plot_correlation_heatmap,
+    plot_multicollinearity_analysis
+)
+from utils.correlation_analysis import (
+    compute_cross_feature_correlations,
+    detect_multicollinearity_issues
+)
 
 
 def _transform_m5_to_long_format(sales_data: pd.DataFrame) -> pd.DataFrame:
@@ -270,3 +278,258 @@ def study_feature_target_relationships(
     print(f"  - Total observations: {summary['total_observations']}")
 
     return results
+
+
+def study_feature_feature_relationships(
+    data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
+) -> Dict[str, Any]:
+    """
+    Step 7: Study feature-feature relationships.
+
+    Analyze relationships between features to understand:
+    - Product hierarchy (category-department correlations)
+    - Geographic demand pattern similarities
+    - Price coordination across stores
+    - Multicollinearity issues for forecasting models
+
+    This step focuses on understanding business-meaningful feature relationships
+    and identifying potential issues for model development.
+
+    Parameters
+    ----------
+    data_path : str
+        Path to directory containing M5 CSV files
+
+    Returns
+    -------
+    Dict[str, Any]
+        Comprehensive analysis results containing:
+        - product_hierarchy: Category-department relationships
+        - geographic_patterns: Store correlations within states
+        - multicollinearity: Potential modeling issues
+        - visualizations: Generated plot metadata
+        - summary: High-level findings
+
+    Raises
+    ------
+    FileNotFoundError
+        If required CSV files are not found
+    ValueError
+        If data validation fails
+
+    Example
+    -------
+    >>> results = study_feature_feature_relationships()
+    >>> print(results['summary'])
+    """
+    print("Starting Step 7: Feature-Feature Relationship Analysis")
+    print("-" * 60)
+
+    # Load datasets
+    try:
+        sales_path = os.path.join(data_path, "sales_train_validation.csv")
+
+        if not os.path.exists(sales_path):
+            raise FileNotFoundError(f"Sales file not found: {sales_path}")
+
+        sales_data = pd.read_csv(sales_path)
+
+        print(f"Loaded datasets:")
+        print(f"  - Sales: {len(sales_data)} rows × {len(sales_data.columns)} cols")
+
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Failed to load data files: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error loading data: {str(e)}")
+
+    results = {}
+
+    # 1. Compute cross-feature correlations
+    print("\n1. Computing cross-feature correlations...")
+    try:
+        cross_feature_results = compute_cross_feature_correlations(sales_data)
+        results['cross_feature_correlations'] = cross_feature_results
+
+        if 'product_hierarchy_correlations' in cross_feature_results:
+            hierarchy = cross_feature_results['product_hierarchy_correlations']
+            print(f"   ✓ Analyzed {hierarchy.get('categories_count', 0)} categories")
+            print(f"   ✓ Analyzed {hierarchy.get('departments_count', 0)} departments")
+
+        if 'geographic_correlations' in cross_feature_results:
+            geo = cross_feature_results['geographic_correlations']
+            print(f"   ✓ Analyzed {geo.get('states_count', 0)} states")
+
+    except Exception as e:
+        print(f"   ✗ Error in cross-feature analysis: {str(e)}")
+        results['cross_feature_correlations'] = {'error': str(e)}
+
+    # 2. Create feature matrix for multicollinearity analysis
+    print("2. Creating feature matrix for multicollinearity detection...")
+    try:
+        # Extract numeric features from M5 data
+        # Focus on category-level aggregates for cleaner analysis
+        feature_matrix = _create_feature_matrix_for_multicollinearity(sales_data)
+
+        if len(feature_matrix) > 0:
+            print(f"   ✓ Created feature matrix with {len(feature_matrix)} samples")
+            print(f"   ✓ Analyzing {len(feature_matrix.columns)} features")
+
+            # 3. Detect multicollinearity issues
+            print("3. Detecting multicollinearity issues...")
+            try:
+                multicollinearity_results = detect_multicollinearity_issues(
+                    feature_matrix,
+                    threshold=0.8
+                )
+                results['multicollinearity_analysis'] = multicollinearity_results
+
+                high_pairs = multicollinearity_results.get('high_correlation_pairs', [])
+                print(f"   ✓ Identified {len(high_pairs)} high-correlation feature pairs")
+
+                # Show recommendations
+                recommendations = multicollinearity_results.get('recommendations', [])
+                if recommendations:
+                    print(f"   ✓ Recommendations generated ({len(recommendations)} items)")
+
+            except Exception as e:
+                print(f"   ✗ Error in multicollinearity analysis: {str(e)}")
+                results['multicollinearity_analysis'] = {'error': str(e)}
+        else:
+            print("   ℹ  Insufficient data for multicollinearity analysis")
+
+    except Exception as e:
+        print(f"   ✗ Error creating feature matrix: {str(e)}")
+
+    # 4. Generate visualizations
+    print("4. Generating feature-feature relationship plots...")
+
+    # Ensure plot directory exists
+    plot_dir = "notebooks/eda/plots/step7_feature_relationships"
+    Path(plot_dir).mkdir(parents=True, exist_ok=True)
+
+    visualizations = {}
+
+    # Correlation heatmap
+    if 'feature_matrix' in locals() and len(feature_matrix) > 0:
+        try:
+            heatmap_path = os.path.join(plot_dir, "correlation_heatmap.png")
+            heatmap_results = plot_correlation_heatmap(
+                feature_matrix,
+                heatmap_path,
+                title='Feature Correlation Analysis',
+                cluster=True
+            )
+            visualizations['correlation_heatmap'] = heatmap_results
+            print(f"   ✓ Generated correlation heatmap")
+            print(f"     Path: {heatmap_path}")
+        except Exception as e:
+            print(f"   ✗ Error generating correlation heatmap: {str(e)}")
+
+        # Multicollinearity analysis plot
+        try:
+            multicollinearity_path = os.path.join(plot_dir, "multicollinearity_analysis.png")
+            multicollinearity_plot_results = plot_multicollinearity_analysis(
+                feature_matrix,
+                multicollinearity_path,
+                threshold=0.8
+            )
+            visualizations['multicollinearity_plot'] = multicollinearity_plot_results
+            print(f"   ✓ Generated multicollinearity analysis plot")
+            print(f"     Path: {multicollinearity_path}")
+        except Exception as e:
+            print(f"   ✗ Error generating multicollinearity plot: {str(e)}")
+
+    results['visualizations'] = visualizations
+
+    # 5. Generate summary
+    print("\n5. Generating summary...")
+
+    high_corr_count = len(results.get('multicollinearity_analysis', {}).get('high_correlation_pairs', []))
+    features_analyzed = len(feature_matrix.columns) if 'feature_matrix' in locals() else 0
+
+    summary = {
+        'features_analyzed': features_analyzed,
+        'high_correlation_pairs': high_corr_count,
+        'product_hierarchy_analyzed': 'product_hierarchy_correlations' in results.get('cross_feature_correlations', {}),
+        'geographic_patterns_analyzed': 'geographic_correlations' in results.get('cross_feature_correlations', {}),
+        'step_status': 'complete'
+    }
+
+    results['summary'] = summary
+
+    print("\nStep 7 analysis complete!")
+    print("-" * 60)
+    print(f"Summary:")
+    print(f"  - Features analyzed: {summary['features_analyzed']}")
+    print(f"  - High correlation pairs: {summary['high_correlation_pairs']}")
+    print(f"  - Product hierarchy: {'Yes' if summary['product_hierarchy_analyzed'] else 'No'}")
+    print(f"  - Geographic patterns: {'Yes' if summary['geographic_patterns_analyzed'] else 'No'}")
+
+    return results
+
+
+def _create_feature_matrix_for_multicollinearity(sales_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create a feature matrix for multicollinearity analysis from M5 sales data.
+
+    Aggregates daily sales data to create features suitable for correlation analysis.
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data with daily sales columns (d_*)
+
+    Returns
+    -------
+    pd.DataFrame
+        Feature matrix with category-level aggregate features
+    """
+    # Get sales columns
+    sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+    if len(sales_cols) == 0:
+        return pd.DataFrame()
+
+    # Create features by category
+    features = []
+
+    if 'cat_id' in sales_data.columns:
+        for cat in sales_data['cat_id'].unique():
+            if pd.isna(cat):
+                continue
+
+            cat_data = sales_data[sales_data['cat_id'] == cat][sales_cols]
+
+            if len(cat_data) > 0:
+                daily_totals = cat_data.sum(axis=0)
+
+                # Extract features: mean, std, trend
+                mean_sales = float(daily_totals.mean())
+                std_sales = float(daily_totals.std())
+                min_sales = float(daily_totals.min())
+                max_sales = float(daily_totals.max())
+
+                # Simple trend calculation (last week vs first week)
+                if len(daily_totals) >= 14:
+                    first_week = daily_totals.iloc[:7].mean()
+                    last_week = daily_totals.iloc[-7:].mean()
+                    trend = float(last_week - first_week) if first_week > 0 else 0
+                else:
+                    trend = 0
+
+                features.append({
+                    'category': cat,
+                    'mean_sales': mean_sales,
+                    'std_sales': std_sales,
+                    'min_sales': min_sales,
+                    'max_sales': max_sales,
+                    'trend': trend
+                })
+
+    if len(features) > 0:
+        feature_df = pd.DataFrame(features)
+        # Keep only numeric columns
+        numeric_cols = feature_df.select_dtypes(include=[np.number]).columns
+        return feature_df[numeric_cols]
+    else:
+        return pd.DataFrame()

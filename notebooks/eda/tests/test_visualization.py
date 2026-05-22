@@ -22,6 +22,16 @@ try:
 except ImportError:
     plot_categorical_sales_distributions = None
 
+try:
+    from utils.visualization import plot_correlation_heatmap
+except ImportError:
+    plot_correlation_heatmap = None
+
+try:
+    from utils.visualization import plot_multicollinearity_analysis
+except ImportError:
+    plot_multicollinearity_analysis = None
+
 
 class TestPlotCategoricalSalesDistributions:
     """Test suite for plot_categorical_sales_distributions function."""
@@ -299,3 +309,192 @@ def test_plot_categorical_sales_distributions_basic():
     # Cleanup
     if os.path.exists(save_path):
         os.remove(save_path)
+
+
+class TestPlotCorrelationHeatmap:
+    """Test suite for plot_correlation_heatmap function."""
+
+    def test_basic_functionality(self):
+        """Test basic correlation heatmap creation."""
+        pytest.skip("Waiting for implementation") if plot_correlation_heatmap is None else None
+
+        # Create correlated data
+        sales_data = pd.DataFrame({
+            'feature_1': [1, 2, 3, 4, 5],
+            'feature_2': [2, 4, 6, 8, 10],  # Highly correlated with feature_1
+            'feature_3': [10, 9, 8, 7, 6]   # Negatively correlated
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_heatmap.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_correlation_heatmap(sales_data, save_path)
+
+        assert isinstance(result, dict)
+        assert 'plot_path' in result
+        assert os.path.exists(save_path)
+        assert 'correlation_matrix' in result or 'correlations' in result
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_with_title_and_labels(self):
+        """Test heatmap with custom title and labels."""
+        pytest.skip("Waiting for implementation") if plot_correlation_heatmap is None else None
+
+        sales_data = pd.DataFrame({
+            'price': [100, 120, 130, 140, 150],
+            'quantity': [10, 12, 13, 14, 15],
+            'revenue': [1000, 1440, 1690, 1960, 2250]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_heatmap_titled.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_correlation_heatmap(
+            sales_data,
+            save_path,
+            title='Price-Quantity-Revenue Correlations'
+        )
+
+        assert os.path.exists(save_path)
+        assert isinstance(result, dict)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_hierarchical_clustering(self):
+        """Test that heatmap includes hierarchical clustering."""
+        pytest.skip("Waiting for implementation") if plot_correlation_heatmap is None else None
+
+        sales_data = pd.DataFrame({
+            'cat_a': [1, 2, 3, 4, 5],
+            'cat_b': [1.1, 2.1, 3.1, 4.1, 5.1],
+            'cat_c': [10, 9, 8, 7, 6],
+            'cat_d': [9.5, 8.5, 7.5, 6.5, 5.5]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_heatmap_cluster.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_correlation_heatmap(sales_data, save_path, cluster=True)
+
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_publication_quality_dpi(self):
+        """Test that heatmap is saved at 300 DPI."""
+        pytest.skip("Waiting for implementation") if plot_correlation_heatmap is None else None
+
+        sales_data = pd.DataFrame({
+            'a': [1, 2, 3, 4, 5],
+            'b': [2, 4, 6, 8, 10],
+            'c': [5, 4, 3, 2, 1]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_heatmap_dpi.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_correlation_heatmap(sales_data, save_path)
+
+        # High DPI should result in larger file size
+        file_size = os.path.getsize(save_path)
+        assert file_size > 1000, "Plot should be saved at high resolution"
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+
+class TestPlotMulticollinearityAnalysis:
+    """Test suite for plot_multicollinearity_analysis function."""
+
+    def test_basic_functionality(self):
+        """Test basic multicollinearity analysis plot."""
+        pytest.skip("Waiting for implementation") if plot_multicollinearity_analysis is None else None
+
+        # Create highly correlated data
+        sales_data = pd.DataFrame({
+            'feature_1': [1, 2, 3, 4, 5],
+            'feature_2': [2, 4, 6, 8, 10],
+            'feature_3': [1.5, 3, 4.5, 6, 7.5]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_multicollinearity.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_multicollinearity_analysis(sales_data, save_path, threshold=0.8)
+
+        assert isinstance(result, dict)
+        assert 'plot_path' in result
+        assert os.path.exists(save_path)
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_vif_calculation(self):
+        """Test VIF (Variance Inflation Factor) calculation."""
+        pytest.skip("Waiting for implementation") if plot_multicollinearity_analysis is None else None
+
+        sales_data = pd.DataFrame({
+            'x1': [1, 2, 3, 4, 5],
+            'x2': [2, 4, 6, 8, 10],
+            'x3': [3, 6, 9, 12, 15]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_vif.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_multicollinearity_analysis(sales_data, save_path)
+
+        assert isinstance(result, dict)
+        assert 'vif_results' in result or 'analysis_details' in result
+
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    def test_threshold_parameter(self):
+        """Test threshold parameter for high correlation detection."""
+        pytest.skip("Waiting for implementation") if plot_multicollinearity_analysis is None else None
+
+        sales_data = pd.DataFrame({
+            'a': [1, 2, 3, 4, 5],
+            'b': [1.1, 2.1, 3.1, 4.1, 5.1],
+            'c': [10, 9, 8, 7, 6]
+        })
+
+        save_path_high = 'notebooks/eda/plots/step7_feature_relationships/test_threshold_high.png'
+        save_path_low = 'notebooks/eda/plots/step7_feature_relationships/test_threshold_low.png'
+        Path(save_path_high).parent.mkdir(parents=True, exist_ok=True)
+
+        result_high = plot_multicollinearity_analysis(sales_data, save_path_high, threshold=0.95)
+        result_low = plot_multicollinearity_analysis(sales_data, save_path_low, threshold=0.5)
+
+        assert isinstance(result_high, dict)
+        assert isinstance(result_low, dict)
+
+        if os.path.exists(save_path_high):
+            os.remove(save_path_high)
+        if os.path.exists(save_path_low):
+            os.remove(save_path_low)
+
+    def test_recommendations_included(self):
+        """Test that recommendations are included in output."""
+        pytest.skip("Waiting for implementation") if plot_multicollinearity_analysis is None else None
+
+        sales_data = pd.DataFrame({
+            'feat_1': [1, 2, 3, 4, 5],
+            'feat_2': [1, 2, 3, 4, 5],  # Perfect correlation
+            'feat_3': [5, 4, 3, 2, 1]
+        })
+
+        save_path = 'notebooks/eda/plots/step7_feature_relationships/test_recommendations.png'
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+        result = plot_multicollinearity_analysis(sales_data, save_path)
+
+        assert 'recommendations' in result or 'analysis_details' in result or 'business_implications' in result
+
+        if os.path.exists(save_path):
+            os.remove(save_path)

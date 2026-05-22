@@ -344,3 +344,318 @@ def compute_snap_benefit_impact(
     }
 
     return results
+
+
+def compute_cross_feature_correlations(
+    sales_data: pd.DataFrame
+) -> Dict[str, Any]:
+    """
+    Analyze cross-feature correlations for business-meaningful patterns.
+
+    Examines relationships between:
+    - Product hierarchy (category-department relationships)
+    - Geographic patterns (stores within states)
+    - Price coordination across locations
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data with item_id, store_id, cat_id, dept_id columns
+        and daily sales columns (d_*)
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - product_hierarchy_correlations: Category-department relationships
+        - geographic_correlations: State-level store correlations
+        - price_coordination: Price patterns if available
+        - notes: Interpretation and business context
+
+    Example
+    -------
+    >>> result = compute_cross_feature_correlations(sales_data)
+    >>> print(result['product_hierarchy_correlations'])
+    """
+    results = {}
+
+    # Get sales columns
+    sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+    if len(sales_cols) == 0:
+        raise ValueError("No sales columns (d_*) found in sales_data")
+
+    # 1. Product hierarchy correlations
+    hierarchy_corr = {}
+
+    if 'cat_id' in sales_data.columns and 'dept_id' in sales_data.columns:
+        # Calculate correlation between categories and departments
+        category_totals = {}
+        dept_totals = {}
+
+        for _, row in sales_data.iterrows():
+            cat = row.get('cat_id')
+            dept = row.get('dept_id')
+
+            if pd.isna(cat) or pd.isna(dept):
+                continue
+
+            # Sum daily sales for this item
+            item_sales = row[sales_cols].sum()
+
+            if cat not in category_totals:
+                category_totals[cat] = 0
+            if dept not in dept_totals:
+                dept_totals[dept] = 0
+
+            category_totals[cat] += item_sales
+            dept_totals[dept] += item_sales
+
+        # Analyze department-category mapping
+        dept_cat_mapping = {}
+        for _, row in sales_data.iterrows():
+            cat = row.get('cat_id')
+            dept = row.get('dept_id')
+
+            if pd.isna(cat) or pd.isna(dept):
+                continue
+
+            if dept not in dept_cat_mapping:
+                dept_cat_mapping[dept] = set()
+
+            dept_cat_mapping[dept].add(cat)
+
+        # Calculate correlation strength
+        hierarchy_corr = {
+            'departments_count': len(dept_cat_mapping),
+            'categories_count': len(category_totals),
+            'department_category_mapping': {
+                dept: list(cats) for dept, cats in dept_cat_mapping.items()
+            },
+            'category_totals': {cat: float(val) for cat, val in category_totals.items()},
+            'dept_totals': {dept: float(val) for dept, val in dept_totals.items()}
+        }
+
+    results['product_hierarchy_correlations'] = hierarchy_corr
+
+    # 2. Geographic correlations
+    geographic_corr = {}
+
+    if 'store_id' in sales_data.columns:
+        # Extract state from store_id (e.g., CA_1 -> CA)
+        state_stores = {}
+        store_totals = {}
+
+        for _, row in sales_data.iterrows():
+            store_id = row.get('store_id')
+
+            if pd.isna(store_id):
+                continue
+
+            # Extract state code
+            try:
+                state = str(store_id).split('_')[0]
+            except (IndexError, AttributeError):
+                continue
+
+            item_sales = row[sales_cols].sum()
+
+            if state not in state_stores:
+                state_stores[state] = []
+            if store_id not in store_totals:
+                store_totals[store_id] = 0
+
+            state_stores[state].append(store_id)
+            store_totals[store_id] += item_sales
+
+        # Calculate correlation between stores within states
+        state_correlations = {}
+
+        for state, stores in state_stores.items():
+            stores = list(set(stores))  # Unique stores
+
+            if len(stores) < 2:
+                state_correlations[state] = {
+                    'stores': stores,
+                    'store_count': len(stores),
+                    'avg_correlation': None
+                }
+            else:
+                # Calculate correlation between store pairs within state
+                correlations = []
+
+                for i, store1 in enumerate(stores):
+                    for store2 in stores[i + 1:]:
+                        # Get sales for each store from data
+                        store1_data = sales_data[
+                            sales_data['store_id'] == store1
+                        ][sales_cols].sum(axis=0).values
+
+                        store2_data = sales_data[
+                            sales_data['store_id'] == store2
+                        ][sales_cols].sum(axis=0).values
+
+                        if len(store1_data) > 0 and len(store2_data) > 0:
+                            corr = np.corrcoef(store1_data, store2_data)[0, 1]
+                            if not np.isnan(corr):
+                                correlations.append(float(corr))
+
+                avg_corr = float(np.mean(correlations)) if correlations else None
+
+                state_correlations[state] = {
+                    'stores': stores,
+                    'store_count': len(stores),
+                    'avg_correlation': avg_corr,
+                    'store_pair_correlations': correlations[:5]  # Show first 5 pairs
+                }
+
+        geographic_corr = {
+            'states_count': len(state_correlations),
+            'state_correlations': state_correlations
+        }
+
+    results['geographic_correlations'] = geographic_corr
+
+    # 3. Notes and business context
+    results['notes'] = (
+        "Product hierarchy shows how categories map to departments. "
+        "Geographic correlations reveal demand pattern similarities across stores in same state. "
+        "High state-level correlations may indicate regional demand patterns."
+    )
+
+    return results
+
+
+def detect_multicollinearity_issues(
+    sales_data: pd.DataFrame,
+    threshold: float = 0.8
+) -> Dict[str, Any]:
+    """
+    Detect multicollinearity issues in feature data.
+
+    Identifies highly correlated features that may cause problems in
+    forecasting models. Provides VIF-style analysis with business
+    interpretation of acceptable vs concerning correlations.
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        Feature data with numeric columns for correlation analysis
+    threshold : float, default=0.8
+        Correlation threshold above which pairs are flagged as high correlation
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - high_correlation_pairs: List of feature pairs with high correlation
+        - vif_analysis: Variance inflation factors or related metrics
+        - business_implications: Interpretation for forecasting
+        - recommendations: Actions to address multicollinearity
+
+    Example
+    -------
+    >>> result = detect_multicollinearity_issues(sales_data, threshold=0.8)
+    >>> print(result['high_correlation_pairs'])
+    """
+    results = {}
+
+    # Select numeric columns only
+    numeric_data = sales_data.select_dtypes(include=[np.number])
+
+    if numeric_data.empty:
+        return {
+            'high_correlation_pairs': [],
+            'vif_analysis': {},
+            'business_implications': 'No numeric features found',
+            'recommendations': []
+        }
+
+    if len(numeric_data.columns) < 2:
+        return {
+            'high_correlation_pairs': [],
+            'vif_analysis': {},
+            'business_implications': 'Insufficient features for multicollinearity analysis',
+            'recommendations': []
+        }
+
+    # Drop rows with NaN values for correlation calculation
+    clean_data = numeric_data.dropna()
+
+    if len(clean_data) == 0:
+        return {
+            'high_correlation_pairs': [],
+            'vif_analysis': {},
+            'business_implications': 'No valid data after removing NaN values',
+            'recommendations': []
+        }
+
+    # Calculate correlation matrix
+    correlation_matrix = clean_data.corr()
+
+    # Find high correlation pairs (excluding self-correlations)
+    high_correlation_pairs = []
+
+    for i in range(len(correlation_matrix.columns)):
+        for j in range(i + 1, len(correlation_matrix.columns)):
+            feat1 = correlation_matrix.columns[i]
+            feat2 = correlation_matrix.columns[j]
+            corr_value = correlation_matrix.iloc[i, j]
+
+            if abs(corr_value) >= threshold:
+                high_correlation_pairs.append({
+                    'feature_1': str(feat1),
+                    'feature_2': str(feat2),
+                    'correlation': float(corr_value),
+                    'abs_correlation': float(abs(corr_value))
+                })
+
+    # Sort by absolute correlation value (highest first)
+    high_correlation_pairs = sorted(
+        high_correlation_pairs,
+        key=lambda x: x['abs_correlation'],
+        reverse=True
+    )
+
+    # Simple VIF-style analysis
+    vif_analysis = {}
+
+    for col in clean_data.columns:
+        # Calculate correlation with all other features
+        col_correlations = correlation_matrix[col].drop(col)
+        avg_abs_corr = float(abs(col_correlations).mean())
+
+        # VIF approximation: higher average correlation suggests higher VIF
+        vif_score = 1 / (1 - avg_abs_corr + 0.01) if avg_abs_corr < 0.99 else 100.0
+
+        vif_analysis[str(col)] = {
+            'average_abs_correlation': avg_abs_corr,
+            'vif_approximation': float(vif_score),
+            'concern_level': 'high' if vif_score > 10 else 'medium' if vif_score > 5 else 'low'
+        }
+
+    # Business implications and recommendations
+    if len(high_correlation_pairs) > 0:
+        business_implications = (
+            f"Found {len(high_correlation_pairs)} highly correlated feature pairs. "
+            "High multicollinearity may inflate model uncertainty and reduce interpretability."
+        )
+
+        recommendations = [
+            "Consider removing one feature from each highly correlated pair",
+            "Use domain knowledge to decide which feature is more meaningful",
+            "Consider PCA or other dimensionality reduction techniques",
+            "Monitor feature importance in forecasting models"
+        ]
+    else:
+        business_implications = "No high correlations detected at current threshold."
+        recommendations = ["Current feature set appears suitable for modeling"]
+
+    results['high_correlation_pairs'] = high_correlation_pairs
+    results['vif_analysis'] = vif_analysis
+    results['business_implications'] = business_implications
+    results['recommendations'] = recommendations
+    results['threshold_used'] = threshold
+    results['correlation_matrix'] = correlation_matrix.to_dict()
+
+    return results

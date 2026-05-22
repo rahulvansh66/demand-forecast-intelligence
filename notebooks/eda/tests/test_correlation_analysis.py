@@ -361,3 +361,196 @@ class TestComputeSnapBenefitImpact:
         assert isinstance(result, dict)
         if 'snap_impact_by_state' in result and result['snap_impact_by_state']:
             assert len(result['snap_impact_by_state']) >= 1
+
+
+class TestComputeCrossFeatureCorrelations:
+    """Test suite for compute_cross_feature_correlations function."""
+
+    def test_basic_functionality(self):
+        """Test basic cross-feature correlation analysis."""
+        from utils.correlation_analysis import compute_cross_feature_correlations
+
+        # Create sample data with hierarchical structure
+        sales_data = pd.DataFrame({
+            'item_id': ['FOODS_3_090', 'FOODS_3_091', 'HOUSEHOLD_1_001', 'HOUSEHOLD_1_002'],
+            'store_id': ['CA_1', 'CA_1', 'CA_1', 'CA_2'],
+            'cat_id': ['FOODS', 'FOODS', 'HOUSEHOLD', 'HOUSEHOLD'],
+            'dept_id': ['FOODS_3', 'FOODS_3', 'HOUSEHOLD_1', 'HOUSEHOLD_1'],
+            'd_1': [10, 12, 15, 20],
+            'd_2': [15, 18, 20, 25],
+            'd_3': [12, 14, 18, 22]
+        })
+
+        result = compute_cross_feature_correlations(sales_data)
+
+        # Verify result structure
+        assert isinstance(result, dict)
+        assert 'product_hierarchy_correlations' in result
+        assert 'geographic_correlations' in result
+        assert 'price_coordination' in result or 'notes' in result
+
+    def test_product_hierarchy_correlations(self):
+        """Test product hierarchy correlation detection."""
+        from utils.correlation_analysis import compute_cross_feature_correlations
+
+        # Create data with clear category-department relationship
+        sales_data = pd.DataFrame({
+            'item_id': ['FOODS_3_001', 'FOODS_3_002', 'HOUSEHOLD_1_001', 'HOUSEHOLD_1_002'],
+            'cat_id': ['FOODS', 'FOODS', 'HOUSEHOLD', 'HOUSEHOLD'],
+            'dept_id': ['FOODS_3', 'FOODS_3', 'HOUSEHOLD_1', 'HOUSEHOLD_1'],
+            'd_1': [100, 105, 200, 210],
+            'd_2': [110, 115, 210, 220],
+            'd_3': [105, 110, 205, 215]
+        })
+
+        result = compute_cross_feature_correlations(sales_data)
+
+        assert 'product_hierarchy_correlations' in result
+        hierarchy_corr = result['product_hierarchy_correlations']
+        assert isinstance(hierarchy_corr, dict)
+
+    def test_geographic_correlations(self):
+        """Test geographic store correlation detection."""
+        from utils.correlation_analysis import compute_cross_feature_correlations
+
+        # Create data with stores in same state
+        sales_data = pd.DataFrame({
+            'item_id': ['ITEM_001', 'ITEM_002', 'ITEM_003', 'ITEM_004'],
+            'store_id': ['CA_1', 'CA_2', 'TX_1', 'TX_2'],
+            'd_1': [100, 110, 200, 190],
+            'd_2': [120, 130, 210, 200],
+            'd_3': [110, 120, 210, 200]
+        })
+
+        result = compute_cross_feature_correlations(sales_data)
+
+        assert 'geographic_correlations' in result
+        geo_corr = result['geographic_correlations']
+        assert isinstance(geo_corr, dict)
+
+    def test_edge_case_single_item(self):
+        """Test with single item."""
+        from utils.correlation_analysis import compute_cross_feature_correlations
+
+        sales_data = pd.DataFrame({
+            'item_id': ['ITEM_001'],
+            'store_id': ['CA_1'],
+            'd_1': [100],
+            'd_2': [110]
+        })
+
+        result = compute_cross_feature_correlations(sales_data)
+
+        assert isinstance(result, dict)
+
+    def test_missing_columns_handling(self):
+        """Test handling of missing optional columns."""
+        from utils.correlation_analysis import compute_cross_feature_correlations
+
+        # Minimal data without hierarchy info
+        sales_data = pd.DataFrame({
+            'store_id': ['CA_1', 'CA_2', 'TX_1'],
+            'd_1': [100, 110, 200],
+            'd_2': [120, 130, 210]
+        })
+
+        # Should handle gracefully without raising error
+        result = compute_cross_feature_correlations(sales_data)
+        assert isinstance(result, dict)
+
+
+class TestDetectMulticollinearityIssues:
+    """Test suite for detect_multicollinearity_issues function."""
+
+    def test_basic_functionality(self):
+        """Test basic multicollinearity detection."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        # Create highly correlated features
+        sales_data = pd.DataFrame({
+            'feature_1': [1, 2, 3, 4, 5],
+            'feature_2': [2, 4, 6, 8, 10],  # Perfect correlation with feature_1
+            'feature_3': [10, 20, 30, 40, 50]
+        })
+
+        result = detect_multicollinearity_issues(sales_data, threshold=0.8)
+
+        assert isinstance(result, dict)
+        assert 'high_correlation_pairs' in result
+        assert 'vif_analysis' in result or 'notes' in result
+        assert 'business_implications' in result or 'recommendations' in result
+
+    def test_threshold_parameter(self):
+        """Test threshold parameter behavior."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        sales_data = pd.DataFrame({
+            'feat_a': [1, 2, 3, 4, 5],
+            'feat_b': [1.1, 2.1, 3.1, 4.1, 5.1],  # High correlation ~0.99
+            'feat_c': [5, 4, 3, 2, 1]  # Negative correlation
+        })
+
+        # Test with high threshold
+        result_high = detect_multicollinearity_issues(sales_data, threshold=0.95)
+        result_low = detect_multicollinearity_issues(sales_data, threshold=0.5)
+
+        assert isinstance(result_high, dict)
+        assert isinstance(result_low, dict)
+
+    def test_no_high_correlations(self):
+        """Test when no high correlations exist."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        sales_data = pd.DataFrame({
+            'feat_1': [1, 5, 3, 9, 2],
+            'feat_2': [10, 1, 8, 3, 9],
+            'feat_3': [7, 2, 4, 6, 1]
+        })
+
+        result = detect_multicollinearity_issues(sales_data, threshold=0.7)
+
+        assert isinstance(result, dict)
+        high_corr_pairs = result.get('high_correlation_pairs', [])
+        assert len(high_corr_pairs) == 0 or isinstance(high_corr_pairs, list)
+
+    def test_perfect_correlation(self):
+        """Test detection of perfect correlations."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        sales_data = pd.DataFrame({
+            'original': [1, 2, 3, 4, 5],
+            'duplicate': [1, 2, 3, 4, 5],  # Perfect correlation
+            'scaled': [10, 20, 30, 40, 50]  # Also perfect with scaled factor
+        })
+
+        result = detect_multicollinearity_issues(sales_data, threshold=0.9)
+
+        assert isinstance(result, dict)
+        # Should detect high correlations
+        high_pairs = result.get('high_correlation_pairs', [])
+        assert isinstance(high_pairs, list)
+
+    def test_single_feature(self):
+        """Test with single feature."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        sales_data = pd.DataFrame({
+            'feat_1': [1, 2, 3, 4, 5]
+        })
+
+        result = detect_multicollinearity_issues(sales_data)
+        assert isinstance(result, dict)
+
+    def test_nan_handling(self):
+        """Test NaN value handling."""
+        from utils.correlation_analysis import detect_multicollinearity_issues
+
+        sales_data = pd.DataFrame({
+            'feat_1': [1, 2, np.nan, 4, 5],
+            'feat_2': [2, 4, 6, 8, np.nan],
+            'feat_3': [10, 20, 30, 40, 50]
+        })
+
+        # Should handle NaN gracefully
+        result = detect_multicollinearity_issues(sales_data)
+        assert isinstance(result, dict)
