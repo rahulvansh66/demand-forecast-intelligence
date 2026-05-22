@@ -70,7 +70,7 @@ notebooks/eda/
 - `compute_segment_performance_metrics()` - Statistical performance for each segment
 - `analyze_segment_seasonality_patterns()` - Seasonal strength by segment type
 - `detect_segment_lifecycle_stages()` - New/growth/mature/decline classification
-- `study_segment_demand_behavior()` - Main orchestration function for Step 11
+- `analyze_segment_behavior()` - Main orchestration function for Step 11
 
 **Step 13 Functions:**
 - `compare_temporal_distributions()` - Statistical distribution comparison across time periods
@@ -86,7 +86,7 @@ notebooks/eda/
 - `validate_cross_validation_integrity()` - CV split boundary verification
 - `scan_suspicious_correlations()` - Detection of leakage indicator correlations
 - `generate_leakage_audit_report()` - Comprehensive risk assessment and deployment readiness
-- `validate_data_leakage()` - Main orchestration function for Step 14
+- `audit_temporal_leakage()` - Main orchestration function for Step 14
 
 ## Quality Metrics
 
@@ -170,16 +170,16 @@ step10_results = identify_outliers_and_anomalies(data_path)
 ### Advanced Analysis (Steps 11, 13, 14)
 ```python
 from notebooks.eda.eda_analysis import (
-    study_segment_demand_behavior,
+    analyze_segment_behavior,
     analyze_distribution_drift,
-    validate_data_leakage
+    audit_temporal_leakage
 )
 
 # Execute advanced analytical pipeline
 data_path = "data/raw"
-step11_results = study_segment_demand_behavior(data_path)
+step11_results = analyze_segment_behavior(data_path)
 step13_results = analyze_distribution_drift(data_path)
-step14_results = validate_data_leakage(data_path)
+step14_results = audit_temporal_leakage(data_path)
 
 # Access detailed insights
 print(f"Found {len(step11_results['segments'])} distinct demand segments")
