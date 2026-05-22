@@ -30,6 +30,62 @@ from utils.correlation_analysis import (
 from utils.visualization import plot_categorical_sales_distributions
 
 
+def _transform_m5_to_long_format(sales_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Transform M5 sales data from wide format to long format for categorical analysis.
+
+    Converts daily sales columns (d_1, d_2, etc.) into individual observations
+    with category, store, and daily sales information.
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data with d_1, d_2, ... columns
+
+    Returns
+    -------
+    pd.DataFrame
+        Long format DataFrame with columns:
+        - cat_id: Product category
+        - store_id: Store identifier
+        - daily_sales: Daily sales value
+        - item_id: Item identifier (for reference)
+    """
+    # Get sales columns
+    sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+    if len(sales_cols) == 0:
+        raise ValueError("No daily sales columns (d_*) found in sales data")
+
+    # Transform to long format
+    long_data = []
+
+    for _, row in sales_data.iterrows():
+        # Extract metadata
+        item_id = row.get('item_id', 'Unknown')
+        cat_id = row.get('cat_id', 'Unknown')
+        store_id = row.get('store_id', 'Unknown')
+
+        # Extract daily sales values
+        for sales_col in sales_cols:
+            sales_value = row[sales_col]
+
+            # Only include valid (non-NaN) sales values
+            if pd.notna(sales_value):
+                long_data.append({
+                    'item_id': item_id,
+                    'cat_id': cat_id,
+                    'store_id': store_id,
+                    'daily_sales': sales_value,
+                    'day_col': sales_col
+                })
+
+    if len(long_data) == 0:
+        raise ValueError("No valid sales data found after transformation")
+
+    return pd.DataFrame(long_data)
+
+
 def study_feature_target_relationships(
     data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
 ) -> Dict[str, Any]:
@@ -106,14 +162,37 @@ def study_feature_target_relationships(
 
     results = {}
 
+    # Transform M5 data to long format for categorical analysis
+    print("\nTransforming M5 data for categorical analysis...")
+    try:
+        transformed_data = _transform_m5_to_long_format(sales_data)
+        print(f"   ✓ Transformed {len(sales_data)} products into {len(transformed_data)} daily observations")
+    except Exception as e:
+        print(f"   ✗ Error transforming data: {str(e)}")
+        return {'error': f'Data transformation failed: {str(e)}'}
+
     # 1. Categorical sales pattern analysis
     print("\n1. Analyzing categorical sales patterns...")
     try:
+        # Analyze by category
         categorical_results = analyze_categorical_sales_patterns(
-            sales_data, calendar_data, price_data
+            data=transformed_data,
+            category_col='cat_id',
+            sales_col='daily_sales'
         )
+
+        # Also analyze by store for additional insights
+        store_results = analyze_categorical_sales_patterns(
+            data=transformed_data,
+            category_col='store_id',
+            sales_col='daily_sales'
+        )
+
+        # Combine results
+        categorical_results['store_analysis'] = store_results
         results['categorical_patterns'] = categorical_results
-        print(f"   ✓ Identified {len(categorical_results.get('category_performance', {}))} categories")
+        print(f"   ✓ Analyzed {len(categorical_results.get('categories', []))} categories")
+        print(f"   ✓ Analyzed {len(store_results.get('categories', []))} stores")
     except Exception as e:
         print(f"   ✗ Error in categorical analysis: {str(e)}")
         results['categorical_patterns'] = {'error': str(e)}
@@ -145,24 +224,8 @@ def study_feature_target_relationships(
     # 4. Generate visualizations
     print("4. Generating feature-target relationship plots...")
 
-    # Prepare data for visualization
-    sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
-
-    # Create daily sales summary by category
-    viz_data = []
-    for _, row in sales_data.iterrows():
-        daily_sales = row[sales_cols].values
-        for sales_val in daily_sales:
-            if pd.notna(sales_val):
-                viz_data.append({
-                    'cat_id': row.get('cat_id', 'Unknown'),
-                    'store_id': row.get('store_id', 'Unknown'),
-                    'daily_sales': sales_val
-                })
-
-    if len(viz_data) > 0:
-        viz_df = pd.DataFrame(viz_data)
-
+    # Use the already transformed data for visualization
+    if 'transformed_data' in locals() and len(transformed_data) > 0:
         # Ensure plot directory exists
         plot_dir = "notebooks/eda/plots/step6_feature_target"
         Path(plot_dir).mkdir(parents=True, exist_ok=True)
@@ -170,7 +233,7 @@ def study_feature_target_relationships(
         # Plot categorical distributions
         try:
             plot_path = os.path.join(plot_dir, "category_sales_distributions.png")
-            plot_results = plot_categorical_sales_distributions(viz_df, plot_path)
+            plot_results = plot_categorical_sales_distributions(transformed_data, plot_path)
             results['visualizations'] = {'category_distributions': plot_results}
             print(f"   ✓ Generated category distribution plot")
             print(f"     Path: {plot_path}")
@@ -183,11 +246,16 @@ def study_feature_target_relationships(
     # 5. Generate summary
     print("\n5. Generating summary...")
 
+    # Get categories from results
+    categories_count = len(categorical_results.get('categories', [])) if 'categories' in categorical_results else 0
+    snap_states_count = len(snap_results.get('snap_impact_by_state', {})) if 'snap_impact_by_state' in snap_results else 0
+    total_observations = len(transformed_data) if 'transformed_data' in locals() else 0
+
     summary = {
-        'total_categories': len(categorical_results.get('category_performance', {})) if 'category_performance' in categorical_results else 0,
+        'total_categories': categories_count,
         'temporal_features_analyzed': 2,  # weekday, month
-        'snap_states_analyzed': len(snap_results.get('snap_impact_by_state', {})) if 'snap_impact_by_state' in snap_results else 0,
-        'total_observations': len(viz_data) if len(viz_data) > 0 else 0,
+        'snap_states_analyzed': snap_states_count,
+        'total_observations': total_observations,
         'step_status': 'complete'
     }
 
