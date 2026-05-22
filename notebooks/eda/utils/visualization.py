@@ -505,3 +505,172 @@ def plot_multicollinearity_analysis(
         'threshold_used': threshold,
         'correlation_matrix': correlation_matrix.to_dict()
     }
+
+
+def plot_seasonal_decomposition(
+    time_series_data: pd.Series,
+    save_path: str,
+    title: str = "Seasonal Decomposition Analysis"
+) -> Dict[str, Any]:
+    """
+    Create seasonal decomposition plots for time series data.
+
+    Generates publication-ready 4-panel decomposition showing original time series,
+    trend component (moving average), seasonal component (weekly pattern), and residuals.
+    Includes statistical metrics for trend and seasonality strength.
+
+    Parameters
+    ----------
+    time_series_data : pd.Series
+        Time series data to decompose
+    save_path : str
+        Path to save the plot
+    title : str, default "Seasonal Decomposition Analysis"
+        Plot title
+
+    Returns
+    -------
+    Dict[str, Any]
+        Plot metadata and decomposition statistics
+    """
+    # Ensure directory exists
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # Create subplots for decomposition components
+    fig, axes = plt.subplots(4, 1, figsize=(12, 10))
+
+    # Original time series
+    axes[0].plot(time_series_data, color='blue', linewidth=1)
+    axes[0].set_title('Original Time Series', fontsize=12)
+    axes[0].set_ylabel('Sales Volume')
+
+    # Simple trend (moving average)
+    window = min(30, len(time_series_data) // 4)  # 30-day or 1/4 of data
+    if window > 1:
+        trend = time_series_data.rolling(window=window, center=True).mean()
+        axes[1].plot(trend, color='red', linewidth=2)
+        axes[1].set_title(f'Trend Component ({window}-day moving average)', fontsize=12)
+        axes[1].set_ylabel('Trend')
+    else:
+        axes[1].text(0.5, 0.5, 'Insufficient data for trend calculation',
+                     ha='center', va='center', transform=axes[1].transAxes)
+
+    # Seasonal component (weekly pattern if enough data)
+    if len(time_series_data) >= 14:
+        seasonal = np.tile(np.arange(7), len(time_series_data) // 7 + 1)[:len(time_series_data)]
+        weekly_means = []
+        for day in range(7):
+            day_values = time_series_data[day::7]
+            weekly_means.append(day_values.mean())
+
+        seasonal_component = [weekly_means[day % 7] for day in range(len(time_series_data))]
+        axes[2].plot(seasonal_component, color='green', linewidth=1)
+        axes[2].set_title('Seasonal Component (Weekly Pattern)', fontsize=12)
+        axes[2].set_ylabel('Seasonal')
+    else:
+        axes[2].text(0.5, 0.5, 'Insufficient data for seasonal pattern',
+                     ha='center', va='center', transform=axes[2].transAxes)
+
+    # Residual (simplified)
+    if window > 1 and len(time_series_data) >= 14:
+        residual = time_series_data - trend.fillna(time_series_data.mean())
+        axes[3].plot(residual, color='orange', linewidth=1)
+        axes[3].set_title('Residual Component', fontsize=12)
+        axes[3].set_ylabel('Residual')
+        axes[3].set_xlabel('Time Period')
+    else:
+        axes[3].text(0.5, 0.5, 'Insufficient data for residual calculation',
+                     ha='center', va='center', transform=axes[3].transAxes)
+
+    plt.suptitle(title, fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Calculate decomposition statistics
+    trend_strength = 0.0
+    seasonal_strength = 0.0
+
+    if window > 1:
+        trend_strength = float(np.var(trend.dropna()) / np.var(time_series_data))
+
+    if len(time_series_data) >= 14:
+        seasonal_strength = float(np.var(seasonal_component) / np.var(time_series_data))
+
+    return {
+        'plot_path': save_path,
+        'trend_strength': trend_strength,
+        'seasonal_strength': seasonal_strength,
+        'series_length': len(time_series_data),
+        'decomposition_method': 'Simple moving average and weekly seasonality'
+    }
+
+
+def plot_autocorrelation_analysis(
+    autocorr_results: Dict[str, Any],
+    save_path: str
+) -> Dict[str, Any]:
+    """
+    Plot autocorrelation analysis results.
+
+    Creates bar plot of autocorrelations at key lags (1, 7, 14, 28, 30 days)
+    with color-coding for correlation strength and reference lines for
+    statistical significance thresholds.
+
+    Parameters
+    ----------
+    autocorr_results : Dict[str, Any]
+        Autocorrelation analysis results from compute_autocorrelation_analysis
+    save_path : str
+        Path to save the plot
+
+    Returns
+    -------
+    Dict[str, Any]
+        Plot metadata
+    """
+    # Ensure directory exists
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # Extract lag data
+    autocorrs = autocorr_results['autocorrelations']
+    lags = [int(lag.split('_')[1]) for lag in autocorrs.keys()]
+    correlations = [autocorrs[f'lag_{lag}']['correlation'] for lag in lags]
+
+    # Create bar plot
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+
+    bars = ax.bar(lags, correlations, alpha=0.7)
+
+    # Color bars based on strength
+    for bar, corr in zip(bars, correlations):
+        if abs(corr) > 0.3:
+            bar.set_color('red')
+        elif abs(corr) > 0.1:
+            bar.set_color('orange')
+        else:
+            bar.set_color('lightblue')
+
+    ax.set_title('Autocorrelation Analysis - Key Lags', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Lag (days)', fontsize=12)
+    ax.set_ylabel('Autocorrelation', fontsize=12)
+    ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    ax.axhline(y=0.2, color='red', linestyle='--', alpha=0.5, label='Strong correlation threshold')
+    ax.axhline(y=-0.2, color='red', linestyle='--', alpha=0.5)
+
+    # Add value labels
+    for bar, corr in zip(bars, correlations):
+        ax.text(bar.get_x() + bar.get_width()/2,
+                bar.get_height() + (0.01 if corr >= 0 else -0.03),
+                f'{corr:.3f}', ha='center', va='bottom' if corr >= 0 else 'top', fontsize=10)
+
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    return {
+        'plot_path': save_path,
+        'lags_analyzed': lags,
+        'strong_correlations': len([c for c in correlations if abs(c) > 0.3])
+    }

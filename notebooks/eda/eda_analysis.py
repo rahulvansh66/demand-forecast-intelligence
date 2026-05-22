@@ -24,10 +24,18 @@ from utils.correlation_analysis import (
     compute_cross_feature_correlations,
     detect_multicollinearity_issues
 )
+from utils.temporal_analysis import (
+    analyze_time_structure,
+    detect_seasonal_patterns,
+    analyze_trend_components,
+    compute_autocorrelation_analysis
+)
 from utils.visualization import (
     plot_categorical_sales_distributions,
     plot_correlation_heatmap,
-    plot_multicollinearity_analysis
+    plot_multicollinearity_analysis,
+    plot_seasonal_decomposition,
+    plot_autocorrelation_analysis
 )
 
 
@@ -526,3 +534,97 @@ def _create_feature_matrix_for_multicollinearity(sales_data: pd.DataFrame) -> pd
         return feature_df[numeric_cols]
     else:
         return pd.DataFrame()
+
+
+def analyze_time_series_patterns(
+    data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
+) -> Dict[str, Any]:
+    """
+    Step 8: Special time-series EDA.
+
+    Comprehensive temporal pattern analysis including seasonality detection,
+    trend analysis, and autocorrelation structure identification. Provides
+    business-focused interpretations for demand forecasting model specification.
+
+    Parameters
+    ----------
+    data_path : str, default raw data path
+        Path to directory containing M5 CSV files (sales_train_validation.csv, calendar.csv)
+
+    Returns
+    -------
+    Dict[str, Any]
+        Comprehensive time series analysis results including:
+        - time_structure: Panel data structure validation
+        - seasonal_patterns: Category-level seasonality analysis
+        - trend_analysis: Linear trend and structural break detection
+        - autocorrelation_analysis: Lag structure for forecasting
+        - visualizations: Path references to generated plots
+
+    Examples
+    --------
+    >>> results = analyze_time_series_patterns()
+    >>> print(results['trend_analysis']['linear_trend'])
+    >>> print(results['autocorrelation_analysis']['business_interpretation'])
+    """
+    print("Starting Step 8: Time Series Pattern Analysis")
+
+    # Load datasets
+    sales_data = pd.read_csv(os.path.join(data_path, "sales_train_validation.csv"))
+    calendar_data = pd.read_csv(os.path.join(data_path, "calendar.csv"))
+
+    results = {}
+
+    # 1. Time structure analysis
+    print("Analyzing time structure...")
+    time_structure = analyze_time_structure(sales_data, calendar_data)
+    results['time_structure'] = time_structure
+
+    # 2. Seasonal pattern detection
+    print("Detecting seasonal patterns...")
+    seasonal_patterns = detect_seasonal_patterns(sales_data, calendar_data, hierarchy_level='category')
+    results['seasonal_patterns'] = seasonal_patterns
+
+    # 3. Trend analysis
+    print("Analyzing trend components...")
+    trend_analysis = analyze_trend_components(sales_data, calendar_data)
+    results['trend_analysis'] = trend_analysis
+
+    # 4. Autocorrelation analysis
+    print("Computing autocorrelation analysis...")
+    autocorr_analysis = compute_autocorrelation_analysis(sales_data, max_lags=365)
+    results['autocorrelation_analysis'] = autocorr_analysis
+
+    # 5. Generate visualizations
+    print("Generating time series plots...")
+
+    # Prepare total daily sales time series
+    sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+    daily_totals = []
+    for col in sales_cols:
+        daily_total = sales_data[col].sum()
+        daily_totals.append(daily_total)
+
+    ts = pd.Series(daily_totals)
+
+    # Seasonal decomposition plot
+    decomp_path = "notebooks/eda/plots/step8_time_series/seasonal_decomposition.png"
+    Path(decomp_path).parent.mkdir(parents=True, exist_ok=True)
+    decomp_results = plot_seasonal_decomposition(
+        ts, decomp_path,
+        title="M5 Total Sales Seasonal Decomposition"
+    )
+
+    # Autocorrelation plot
+    autocorr_path = "notebooks/eda/plots/step8_time_series/autocorrelation_analysis.png"
+    Path(autocorr_path).parent.mkdir(parents=True, exist_ok=True)
+    autocorr_plot_results = plot_autocorrelation_analysis(autocorr_analysis, autocorr_path)
+
+    results['visualizations'] = {
+        'seasonal_decomposition': decomp_results,
+        'autocorrelation_plot': autocorr_plot_results
+    }
+
+    print(f"Step 8 analysis complete. Identified {len(autocorr_analysis['significant_lags'])} significant lag patterns.")
+
+    return results
