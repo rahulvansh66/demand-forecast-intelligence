@@ -35,7 +35,15 @@ from utils.visualization import (
     plot_correlation_heatmap,
     plot_multicollinearity_analysis,
     plot_seasonal_decomposition,
-    plot_autocorrelation_analysis
+    plot_autocorrelation_analysis,
+    plot_missing_patterns,
+    plot_outlier_detection
+)
+from utils.data_quality import (
+    analyze_missing_patterns,
+    characterize_missing_mechanisms,
+    detect_sales_outliers,
+    analyze_pricing_anomalies
 )
 
 
@@ -628,3 +636,370 @@ def analyze_time_series_patterns(
     print(f"Step 8 analysis complete. Identified {len(autocorr_analysis['significant_lags'])} significant lag patterns.")
 
     return results
+
+
+def analyze_missing_values_deeply(
+    data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
+) -> Dict[str, Any]:
+    """
+    Step 9: Deeply analyze missing values and their mechanisms.
+
+    This comprehensive analysis:
+    1. Validates sales data completeness (should have no missing values)
+    2. Identifies pricing gaps by item-store-week combinations
+    3. Verifies calendar data completeness
+    4. Characterizes missing mechanisms (seasonal, geographic, new products, discontinued)
+    5. Correlates missing patterns with business logic
+    6. Generates publication-ready visualizations
+    7. Provides actionable preprocessing recommendations
+
+    Parameters
+    ----------
+    data_path : str
+        Path to raw M5 dataset directory
+
+    Returns
+    -------
+    Dict[str, Any]
+        Comprehensive missing value analysis including:
+        - sales_completeness: Missing value statistics
+        - missing_mechanisms: Identified patterns (seasonal, geographic, etc.)
+        - visualizations: Publication-ready plots
+        - recommendations: Treatment suggestions for preprocessing
+        - summary_statistics: Key findings
+
+    Example
+    -------
+    >>> results = analyze_missing_values_deeply()
+    >>> print(f"Zero-heavy series: {results['summary_statistics']['zero_heavy_percent']}%")
+    >>> print(f"Seasonal items identified: {len(results['missing_mechanisms'].get('seasonal_items', []))}")
+    """
+    print("Step 9: Analyzing missing values deeply...")
+
+    # Load data
+    sales_data = pd.read_csv(f"{data_path}/sales_train_validation.csv")
+    pricing_data = pd.read_csv(f"{data_path}/sell_prices.csv")
+    calendar_data = pd.read_csv(f"{data_path}/calendar.csv")
+
+    results = {}
+
+    # 1. Analyze missing patterns
+    missing_patterns = analyze_missing_patterns(
+        sales_data,
+        pricing_data=pricing_data,
+        calendar_data=calendar_data
+    )
+    results['missing_patterns'] = missing_patterns
+
+    # 2. Characterize missing mechanisms
+    mechanisms = characterize_missing_mechanisms(sales_data)
+    results['missing_mechanisms'] = mechanisms
+
+    # 3. Generate missing patterns visualization
+    missing_plot_path = "notebooks/eda/plots/step9_missing_patterns/missing_data_overview.png"
+    Path(missing_plot_path).parent.mkdir(parents=True, exist_ok=True)
+
+    missing_viz = plot_missing_patterns(
+        missing_patterns,
+        missing_plot_path,
+        title="Step 9: Missing Data Patterns Analysis"
+    )
+    results['visualizations'] = {'missing_patterns': missing_viz}
+
+    # 4. Calculate summary statistics
+    sales_complete = missing_patterns.get('sales_completeness', {})
+    mechanisms_list = mechanisms.get('mechanisms', [])
+
+    summary = {
+        'total_series': sales_complete.get('total_series', 0),
+        'zero_heavy_percent': sales_complete.get('zero_heavy_series', {}).get('percent', 0),
+        'mechanisms_identified': mechanisms_list,
+        'seasonal_items_count': len(mechanisms.get('seasonal_items', [])),
+        'new_products_count': len(mechanisms.get('new_products', [])),
+        'discontinued_items_count': len(mechanisms.get('discontinued_items', [])),
+        'pricing_coverage_percent': missing_patterns.get('pricing_gaps', {}).get('coverage_percent', 0)
+    }
+    results['summary_statistics'] = summary
+
+    # 5. Generate recommendations for preprocessing
+    recommendations = _generate_missing_value_recommendations(
+        missing_patterns,
+        mechanisms,
+        sales_data
+    )
+    results['recommendations'] = recommendations
+
+    print(f"\nStep 9 Analysis Summary:")
+    print(f"  - Zero-heavy series: {summary['zero_heavy_percent']:.1f}%")
+    print(f"  - Missing mechanisms identified: {', '.join(mechanisms_list) if mechanisms_list else 'None'}")
+    print(f"  - Seasonal items: {summary['seasonal_items_count']}")
+    print(f"  - Pricing coverage: {summary['pricing_coverage_percent']:.1f}%")
+    print(f"  - Visualizations saved to: {missing_plot_path}")
+
+    return results
+
+
+def identify_outliers_and_anomalies(
+    data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
+) -> Dict[str, Any]:
+    """
+    Step 10: Identify outliers and anomalies in sales and pricing data.
+
+    This comprehensive analysis:
+    1. Detects sales outliers using category-specific business rules
+    2. Identifies pricing anomalies (jumps, suspicious prices, inconsistencies)
+    3. Classifies outliers as promotional spikes vs data errors
+    4. Validates business rules (no negative sales, etc.)
+    5. Generates publication-ready visualizations
+    6. Provides actionable treatment recommendations
+
+    Category-specific thresholds (business rules):
+    - FOODS: >50 units/day is suspicious (daily consumption item)
+    - HOUSEHOLD: >20 units/day is suspicious (infrequent purchase)
+    - HOBBIES: >100 units/day is suspicious (discretionary spending)
+
+    Parameters
+    ----------
+    data_path : str
+        Path to raw M5 dataset directory
+
+    Returns
+    -------
+    Dict[str, Any]
+        Comprehensive outlier analysis including:
+        - sales_outliers: Sales outlier detection results
+        - pricing_anomalies: Pricing anomaly detection results
+        - business_rule_violations: Invalid values identified
+        - visualizations: Publication-ready plots
+        - recommendations: Treatment suggestions
+        - summary_statistics: Key findings
+
+    Example
+    -------
+    >>> results = identify_outliers_and_anomalies()
+    >>> print(f"Total outliers: {results['summary_statistics']['total_outliers']}")
+    >>> print(f"Price jumps: {results['summary_statistics']['price_jumps_count']}")
+    """
+    print("Step 10: Identifying outliers and anomalies...")
+
+    # Load data
+    sales_data = pd.read_csv(f"{data_path}/sales_train_validation.csv")
+    pricing_data = pd.read_csv(f"{data_path}/sell_prices.csv")
+
+    results = {}
+
+    # 1. Detect sales outliers
+    sales_outliers = detect_sales_outliers(sales_data)
+    results['sales_outliers'] = sales_outliers
+
+    # 2. Detect pricing anomalies
+    pricing_anomalies = analyze_pricing_anomalies(pricing_data)
+    results['pricing_anomalies'] = pricing_anomalies
+
+    # 3. Generate outlier detection visualization
+    outlier_plot_path = "notebooks/eda/plots/step10_outliers/outlier_detection_analysis.png"
+    Path(outlier_plot_path).parent.mkdir(parents=True, exist_ok=True)
+
+    outlier_viz = plot_outlier_detection(
+        sales_outliers,
+        outlier_plot_path,
+        title="Step 10: Sales Outlier Detection Results"
+    )
+    results['visualizations'] = {'outlier_detection': outlier_viz}
+
+    # 4. Calculate summary statistics
+    pricing_anomalies_data = pricing_anomalies.get('price_jumps', {})
+    price_jumps_count = pricing_anomalies_data.get('count', 0)
+
+    violations = sales_outliers.get('business_rule_violations', {})
+    negative_sales = violations.get('negative_sales', {}).get('count', 0)
+    unrealistic_values = violations.get('unrealistic_values', {}).get('count', 0)
+
+    summary = {
+        'total_outliers': sales_outliers.get('total_outliers', 0),
+        'outliers_by_category': {
+            cat: dist.get('count', 0)
+            for cat, dist in sales_outliers.get('outlier_distribution', {}).items()
+        },
+        'price_jumps_count': price_jumps_count,
+        'suspicious_prices_count': pricing_anomalies.get('suspicious_prices', {}).get('count', 0),
+        'cross_store_inconsistencies': pricing_anomalies.get('cross_store_inconsistency', {}).get('count', 0),
+        'negative_sales_violations': negative_sales,
+        'unrealistic_value_violations': unrealistic_values,
+        'total_business_rule_violations': negative_sales + unrealistic_values
+    }
+    results['summary_statistics'] = summary
+
+    # 5. Generate recommendations for outlier treatment
+    recommendations = _generate_outlier_treatment_recommendations(
+        sales_outliers,
+        pricing_anomalies
+    )
+    results['recommendations'] = recommendations
+
+    print(f"\nStep 10 Analysis Summary:")
+    print(f"  - Total sales outliers detected: {summary['total_outliers']}")
+    print(f"  - Price jumps (>200%): {summary['price_jumps_count']}")
+    print(f"  - Business rule violations: {summary['total_business_rule_violations']}")
+    print(f"  - Visualizations saved to: {outlier_plot_path}")
+
+    return results
+
+
+def _generate_missing_value_recommendations(
+    missing_patterns: Dict[str, Any],
+    mechanisms: Dict[str, Any],
+    sales_data: pd.DataFrame
+) -> Dict[str, Any]:
+    """Generate preprocessing recommendations for missing values."""
+    recommendations = {
+        'overall_strategy': [],
+        'by_mechanism': {},
+        'preprocessing_steps': []
+    }
+
+    # Overall strategy
+    if missing_patterns.get('sales_completeness', {}).get('is_complete', False):
+        recommendations['overall_strategy'].append(
+            "Sales data is complete (no missing values). Zeros are informative; maintain as-is."
+        )
+
+    zero_pct = missing_patterns.get('sales_completeness', {}).get('zero_heavy_series', {}).get('percent', 0)
+    if zero_pct > 50:
+        recommendations['overall_strategy'].append(
+            f"High proportion of zero-heavy series ({zero_pct:.1f}%). Consider zero-inflation modeling or intermittent demand forecasting."
+        )
+
+    # By mechanism
+    mechanisms_list = mechanisms.get('mechanisms', [])
+
+    if 'seasonal_availability' in mechanisms_list:
+        seasonal_count = len(mechanisms.get('seasonal_items', []))
+        recommendations['by_mechanism']['seasonal_availability'] = [
+            f"Identified {seasonal_count} seasonal items.",
+            "Treatment: Use seasonal dummy variables or separate models per season.",
+            "Consider hierarchical forecasting by season."
+        ]
+
+    if 'new_product_introduction' in mechanisms_list:
+        new_count = len(mechanisms.get('new_products', []))
+        recommendations['by_mechanism']['new_product_introduction'] = [
+            f"Identified {new_count} new products.",
+            "Treatment: Use transfer learning or Bayesian approaches for cold-start prediction.",
+            "Consider excluding early introduction period from training."
+        ]
+
+    if 'product_discontinuation' in mechanisms_list:
+        disc_count = len(mechanisms.get('discontinued_items', []))
+        recommendations['by_mechanism']['product_discontinuation'] = [
+            f"Identified {disc_count} discontinued items.",
+            "Treatment: Exclude from future period forecasting.",
+            "Use end-of-life patterns for inventory clearance prediction."
+        ]
+
+    if 'geographic_availability' in mechanisms_list:
+        geo_count = len(mechanisms.get('geographic_restrictions', []))
+        recommendations['by_mechanism']['geographic_availability'] = [
+            f"Identified {geo_count} items with geographic restrictions.",
+            "Treatment: Build store-specific models.",
+            "Encode geographic availability as categorical feature."
+        ]
+
+    # Preprocessing steps
+    recommendations['preprocessing_steps'] = [
+        "1. Validate that sales data has no missing values (confirmed by Step 9)",
+        "2. Forward-fill or interpolate missing pricing data per item-store",
+        "3. Create binary features for product lifecycle stage (new/mature/discontinued)",
+        "4. Encode seasonal availability patterns for model interpretability",
+        "5. Flag geographic-restricted items for store-specific treatment"
+    ]
+
+    return recommendations
+
+
+def _generate_outlier_treatment_recommendations(
+    sales_outliers: Dict[str, Any],
+    pricing_anomalies: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Generate preprocessing recommendations for outliers."""
+    recommendations = {
+        'sales_treatment': [],
+        'pricing_treatment': [],
+        'business_rule_violations': [],
+        'preprocessing_steps': []
+    }
+
+    # Sales outlier treatment
+    total_outliers = sales_outliers.get('total_outliers', 0)
+    if total_outliers > 0:
+        recommendations['sales_treatment'].append(
+            f"Found {total_outliers} sales outliers across categories."
+        )
+        recommendations['sales_treatment'].append(
+            "Treatment: Investigate promotional calendar for real spikes vs errors."
+        )
+        recommendations['sales_treatment'].append(
+            "Consider robust scaling or log-transformation for highly skewed categories."
+        )
+
+    # Pricing anomalies treatment
+    price_jumps = sales_outliers.get('price_jumps', {}).get('count', 0)
+    if price_jumps > 0:
+        recommendations['pricing_treatment'].append(
+            f"Found {price_jumps} large price jumps (>200% week-over-week)."
+        )
+        recommendations['pricing_treatment'].append(
+            "Treatment: Verify against promotional calendar; may indicate data entry errors."
+        )
+
+    suspicious_prices = pricing_anomalies.get('suspicious_prices', {}).get('count', 0)
+    if suspicious_prices > 0:
+        recommendations['pricing_treatment'].append(
+            f"Found {suspicious_prices} suspicious prices ($0.01 or extreme values)."
+        )
+        recommendations['pricing_treatment'].append(
+            "Treatment: Manual review required; likely data quality issues."
+        )
+
+    cross_store = pricing_anomalies.get('cross_store_inconsistency', {}).get('count', 0)
+    if cross_store > 0:
+        recommendations['pricing_treatment'].append(
+            f"Found {cross_store} items with cross-store pricing inconsistencies (>20%)."
+        )
+        recommendations['pricing_treatment'].append(
+            "Treatment: Investigate regional pricing strategies; may be intentional."
+        )
+
+    # Business rule violations
+    violations = sales_outliers.get('business_rule_violations', {})
+    neg_sales = violations.get('negative_sales', {}).get('count', 0)
+    unrealistic = violations.get('unrealistic_values', {}).get('count', 0)
+
+    if neg_sales > 0:
+        recommendations['business_rule_violations'].append(
+            f"CRITICAL: Found {neg_sales} negative sales values. These are data errors."
+        )
+        recommendations['business_rule_violations'].append(
+            "Action: Must be removed or corrected before modeling."
+        )
+
+    if unrealistic > 0:
+        recommendations['business_rule_violations'].append(
+            f"Found {unrealistic} unrealistic sales values (>10,000 units/day)."
+        )
+        recommendations['business_rule_violations'].append(
+            "Action: Investigate for data entry errors; consider capping at 99.9th percentile."
+        )
+
+    # Preprocessing steps
+    recommendations['preprocessing_steps'] = [
+        "1. Address business rule violations (negative sales must be removed)",
+        "2. Validate pricing anomalies against promotional calendar",
+        "3. Separate promotional spikes from outliers for preservation",
+        "4. Apply category-specific outlier treatment (cap or robust scaling)",
+        "5. Create outlier flags as features if they have predictive value",
+        "6. Log-transform skewed categories after outlier handling",
+        "7. Document all transformations for model interpretability"
+    ]
+
+    return recommendations

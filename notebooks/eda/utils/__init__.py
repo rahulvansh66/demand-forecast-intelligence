@@ -6,6 +6,7 @@ from . import correlation_analysis
 from . import statistical_analysis
 from . import visualization
 from . import temporal_analysis
+from . import data_quality
 # from .data_validation import *
 # from .reporting import *
 

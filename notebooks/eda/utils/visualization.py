@@ -674,3 +674,285 @@ def plot_autocorrelation_analysis(
         'lags_analyzed': lags,
         'strong_correlations': len([c for c in correlations if abs(c) > 0.3])
     }
+
+
+def plot_missing_patterns(
+    missing_analysis: Dict[str, Any],
+    save_path: str,
+    title: str = "Missing Data Patterns Analysis"
+) -> Dict[str, Any]:
+    """
+    Visualize missing data patterns with heatmaps and statistics.
+
+    Creates publication-ready visualization showing:
+    - Zero-inflation distribution by category
+    - Missing data heatmaps
+    - Business logic correlations with missingness
+
+    Parameters
+    ----------
+    missing_analysis : Dict[str, Any]
+        Results from analyze_missing_patterns function
+    save_path : str
+        Path to save the plot
+    title : str, default="Missing Data Patterns Analysis"
+        Title for the plot
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - plot_path: Path where plot was saved
+        - summary_statistics: Key statistics from analysis
+
+    Raises
+    ------
+    ValueError
+        If input dictionary is empty or missing required keys
+    """
+    if not missing_analysis or 'sales_completeness' not in missing_analysis:
+        raise ValueError("missing_analysis must contain 'sales_completeness' key")
+
+    # Ensure directory exists
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+    sales_complete = missing_analysis.get('sales_completeness', {})
+
+    # Create figure with subplots
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle(title, fontsize=14, fontweight='bold')
+
+    # 1. Zero-heavy series distribution
+    zero_stats = sales_complete.get('series_zero_stats', {})
+    if zero_stats:
+        ax = axes[0, 0]
+        stats = [zero_stats.get('min', 0), zero_stats.get('mean', 0),
+                 zero_stats.get('median', 0), zero_stats.get('max', 0)]
+        labels = ['Min', 'Mean', 'Median', 'Max']
+        colors = ['lightblue', 'skyblue', 'steelblue', 'darkblue']
+
+        bars = ax.bar(labels, stats, color=colors, alpha=0.7)
+        ax.set_title('Zero-Sales Percentage Distribution', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Percentage (%)', fontsize=11)
+        ax.set_ylim(0, 100)
+
+        for bar, stat in zip(bars, stats):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2,
+                   f'{stat:.1f}%', ha='center', va='bottom', fontsize=10)
+
+    # 2. Series completeness summary
+    ax = axes[0, 1]
+    completeness_data = [
+        sales_complete.get('total_series', 0),
+        sales_complete.get('zero_heavy_series', {}).get('count', 0)
+    ]
+    labels = ['Total Series', 'Zero-Heavy (≥80%)']
+    colors = ['green', 'red']
+
+    bars = ax.bar(labels, completeness_data, color=colors, alpha=0.7)
+    ax.set_title('Data Completeness Overview', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Number of Series', fontsize=11)
+
+    for bar, val in zip(bars, completeness_data):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+               f'{int(val)}', ha='center', va='bottom', fontsize=10)
+
+    # 3. Missing percentage by category (if available)
+    ax = axes[1, 0]
+    missing_corr = missing_analysis.get('missing_correlations', {})
+
+    if missing_corr and 'by_store' in missing_corr:
+        stores = list(missing_corr['by_store'].keys())[:10]  # Top 10 stores
+        missing_pcts = [missing_corr['by_store'].get(s, 0) for s in stores]
+
+        bars = ax.barh(stores, missing_pcts, color='coral', alpha=0.7)
+        ax.set_title('Missing Data % by Store (Top 10)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Missing %', fontsize=11)
+
+        for bar, pct in zip(bars, missing_pcts):
+            ax.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height()/2,
+                   f'{pct:.2f}%', ha='left', va='center', fontsize=9)
+    else:
+        ax.text(0.5, 0.5, 'No store-level missing data available',
+               ha='center', va='center', transform=ax.transAxes)
+
+    # 4. Pricing gaps analysis
+    ax = axes[1, 1]
+    pricing_gaps = missing_analysis.get('pricing_gaps', {})
+
+    if pricing_gaps:
+        gap_data = [
+            pricing_gaps.get('total_pricing_combinations', 0),
+            pricing_gaps.get('missing_in_pricing', 0)
+        ]
+        labels = ['Has Pricing', 'Missing Pricing']
+        colors = ['green', 'red']
+
+        wedges, texts, autotexts = ax.pie(gap_data, labels=labels, autopct='%1.1f%%',
+                                           colors=colors, startangle=90)
+        ax.set_title('Pricing Coverage', fontsize=12, fontweight='bold')
+
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontsize(10)
+            autotext.set_fontweight('bold')
+    else:
+        ax.text(0.5, 0.5, 'No pricing gap data available',
+               ha='center', va='center', transform=ax.transAxes)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    return {
+        'plot_path': save_path,
+        'total_series': sales_complete.get('total_series', 0),
+        'zero_heavy_percent': round(
+            (sales_complete.get('zero_heavy_series', {}).get('count', 0) /
+             max(1, sales_complete.get('total_series', 1))) * 100, 2
+        )
+    }
+
+
+def plot_outlier_detection(
+    outlier_analysis: Dict[str, Any],
+    save_path: str,
+    title: str = "Sales Outlier Detection Results"
+) -> Dict[str, Any]:
+    """
+    Visualize outlier detection results by category and distribution.
+
+    Creates publication-ready visualization showing:
+    - Outliers by product category
+    - Category-specific thresholds
+    - Business rule violations
+
+    Parameters
+    ----------
+    outlier_analysis : Dict[str, Any]
+        Results from detect_sales_outliers function
+    save_path : str
+        Path to save the plot
+    title : str, default="Sales Outlier Detection Results"
+        Title for the plot
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing:
+        - plot_path: Path where plot was saved
+        - total_outliers_found: Number of outliers detected
+        - categories_analyzed: List of categories
+
+    Raises
+    ------
+    ValueError
+        If input dictionary is empty or missing required keys
+    """
+    if not outlier_analysis or 'outlier_distribution' not in outlier_analysis:
+        raise ValueError("outlier_analysis must contain 'outlier_distribution' key")
+
+    # Ensure directory exists
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+
+    outlier_dist = outlier_analysis.get('outlier_distribution', {})
+    category_thresholds = outlier_analysis.get('category_thresholds', {})
+
+    # Create figure with subplots
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle(title, fontsize=14, fontweight='bold')
+
+    # 1. Outliers by category
+    ax = axes[0, 0]
+    if outlier_dist:
+        categories = list(outlier_dist.keys())
+        outlier_counts = [outlier_dist[cat].get('count', 0) for cat in categories]
+        colors = ['red', 'orange', 'blue'][:len(categories)]
+
+        bars = ax.bar(categories, outlier_counts, color=colors, alpha=0.7)
+        ax.set_title('Outlier Count by Product Category', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Number of Outliers', fontsize=11)
+
+        for bar, count in zip(bars, outlier_counts):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                   f'{int(count)}', ha='center', va='bottom', fontsize=10)
+    else:
+        ax.text(0.5, 0.5, 'No outlier distribution data available',
+               ha='center', va='center', transform=ax.transAxes)
+
+    # 2. Outlier percentage by category
+    ax = axes[0, 1]
+    if outlier_dist:
+        categories = list(outlier_dist.keys())
+        outlier_pcts = [outlier_dist[cat].get('percent', 0) for cat in categories]
+
+        bars = ax.barh(categories, outlier_pcts, color=['red', 'orange', 'blue'][:len(categories)], alpha=0.7)
+        ax.set_title('Outlier % of Total Sales by Category', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Percentage (%)', fontsize=11)
+
+        for bar, pct in zip(bars, outlier_pcts):
+            ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
+                   f'{pct:.2f}%', ha='left', va='center', fontsize=10)
+
+    # 3. Category thresholds and max values
+    ax = axes[1, 0]
+    if outlier_dist and category_thresholds:
+        categories = list(outlier_dist.keys())
+        thresholds = [category_thresholds.get(cat, 50) for cat in categories]
+        max_values = [outlier_dist[cat].get('max_value', 0) for cat in categories]
+
+        x = np.arange(len(categories))
+        width = 0.35
+
+        bars1 = ax.bar(x - width/2, thresholds, width, label='Threshold', color='steelblue', alpha=0.7)
+        bars2 = ax.bar(x + width/2, max_values, width, label='Max Value', color='darkred', alpha=0.7)
+
+        ax.set_title('Outlier Thresholds vs Actual Max Values', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Units', fontsize=11)
+        ax.set_xticks(x)
+        ax.set_xticklabels(categories)
+        ax.legend()
+
+    # 4. Business rule violations
+    ax = axes[1, 1]
+    violations = outlier_analysis.get('business_rule_violations', {})
+
+    if violations:
+        violation_types = []
+        violation_counts = []
+
+        if violations.get('negative_sales', {}).get('count', 0) > 0:
+            violation_types.append('Negative Sales')
+            violation_counts.append(violations['negative_sales']['count'])
+
+        if violations.get('unrealistic_values', {}).get('count', 0) > 0:
+            violation_types.append('Unrealistic (>10K)')
+            violation_counts.append(violations['unrealistic_values']['count'])
+
+        if violation_types:
+            bars = ax.bar(violation_types, violation_counts, color=['red', 'darkred'], alpha=0.7)
+            ax.set_title('Business Rule Violations', fontsize=12, fontweight='bold')
+            ax.set_ylabel('Count', fontsize=11)
+
+            for bar, count in zip(bars, violation_counts):
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                       f'{int(count)}', ha='center', va='bottom', fontsize=10)
+        else:
+            ax.text(0.5, 0.5, 'No business rule violations detected',
+                   ha='center', va='center', transform=ax.transAxes, color='green', fontsize=12)
+    else:
+        ax.text(0.5, 0.5, 'No violation data available',
+               ha='center', va='center', transform=ax.transAxes)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    total_outliers = outlier_analysis.get('total_outliers', 0)
+    categories = list(outlier_dist.keys()) if outlier_dist else []
+
+    return {
+        'plot_path': save_path,
+        'total_outliers_found': total_outliers,
+        'categories_analyzed': categories
+    }
