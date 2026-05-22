@@ -1,6 +1,6 @@
 ---
 name: eda-framework-adapter
-description: Adapt the specific EDA framework at docs/project-info/claude/eda_framework_original.md to project-specific contexts. ONLY trigger when user explicitly mentions this exact file path or asks to adapt "the EDA framework" while referencing this file. Do NOT trigger for general EDA framework discussions or other EDA files.
+description: MANUAL USE ONLY - Never auto-trigger. Only use when user explicitly provides the skill path .claude/skills/eda-framework-adapter.md and specifically says "use eda-framework-adapter". This skill adapts EDA frameworks to project contexts but should never be invoked automatically.
 ---
 
 # EDA Framework Adapter
