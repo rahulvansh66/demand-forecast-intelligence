@@ -2,6 +2,7 @@
 # Modular utilities for comprehensive demand forecasting EDA
 
 # Import modules as they are implemented:
+from . import basic_validation
 from . import correlation_analysis
 from . import statistical_analysis
 from . import visualization
