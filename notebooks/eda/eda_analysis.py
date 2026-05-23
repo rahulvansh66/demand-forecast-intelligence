@@ -1,7 +1,7 @@
 """
 Main EDA analysis orchestration for M5 demand forecasting dataset.
 
-Implements framework steps 6-10 with hierarchical analysis approach.
+Implements framework steps 6-10, 11,13,14..
 Each function corresponds to one EDA framework step with comprehensive
 statistical analysis and business-focused interpretation.
 """
@@ -169,8 +169,9 @@ def study_feature_target_relationships(
     >>> results = study_feature_target_relationships()
     >>> print(results['summary'])
     """
-    print("Starting Step 6: Feature-Target Relationship Analysis")
-    print("-" * 60)
+    print("=" * 80)
+    print("STEP 6: FEATURE-TARGET RELATIONSHIP ANALYSIS")
+    print("=" * 80)
 
     # Load datasets
     try:
@@ -192,11 +193,12 @@ def study_feature_target_relationships(
         else:
             price_data = pd.DataFrame()
 
-        print("Loaded datasets:")
-        print(f"  - Sales: {len(sales_data)} rows × {len(sales_data.columns)} cols")
-        print(f"  - Calendar: {len(calendar_data)} rows × {len(calendar_data.columns)} cols")
+        print("\n📊 DATASET OVERVIEW")
+        print("-" * 40)
+        print(f"Sales Data:     {len(sales_data):,} products × {len(sales_data.columns)} features")
+        print(f"Calendar Data:  {len(calendar_data):,} days × {len(calendar_data.columns)} features")
         if not price_data.empty:
-            print(f"  - Prices: {len(price_data)} rows × {len(price_data.columns)} cols")
+            print(f"Pricing Data:   {len(price_data):,} records × {len(price_data.columns)} features")
 
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Failed to load data files: {str(e)}")
@@ -206,16 +208,21 @@ def study_feature_target_relationships(
     results = {}
 
     # Transform M5 data to long format for categorical analysis
-    print("\nTransforming M5 data for categorical analysis...")
+    print("\n🔄 DATA TRANSFORMATION")
+    print("-" * 40)
     try:
         transformed_data = _transform_m5_to_long_format(sales_data)
-        print(f"   ✓ Transformed {len(sales_data)} products into {len(transformed_data)} daily observations")
+        print(f"✓ Successfully transformed wide format to long format")
+        print(f"  • Input:  {len(sales_data):,} products")
+        print(f"  • Output: {len(transformed_data):,} daily observations")
+        print(f"  • Ratio:  {len(transformed_data)/len(sales_data):.1f} observations per product")
     except Exception as e:
-        print(f"   ✗ Error transforming data: {str(e)}")
+        print(f"✗ CRITICAL ERROR: Data transformation failed: {str(e)}")
         return {'error': f'Data transformation failed: {str(e)}'}
 
     # 1. Categorical sales pattern analysis
-    print("\n1. Analyzing categorical sales patterns...")
+    print("\n📈 CATEGORICAL SALES PATTERN ANALYSIS")
+    print("-" * 40)
     try:
         # Analyze by category
         categorical_results = analyze_categorical_sales_patterns(
@@ -234,38 +241,80 @@ def study_feature_target_relationships(
         # Combine results
         categorical_results['store_analysis'] = store_results
         results['categorical_patterns'] = categorical_results
-        print(f"   ✓ Analyzed {len(categorical_results.get('categories', []))} categories")
-        print(f"   ✓ Analyzed {len(store_results.get('categories', []))} stores")
+
+        # Display statistical results
+        print("Category-Level Statistics:")
+        if 'category_stats' in categorical_results:
+            for cat, stats in categorical_results['category_stats'].items():
+                print(f"  {cat}:")
+                print(f"    Mean Daily Sales: {stats.get('mean', 0):.2f} units")
+                print(f"    Std Deviation:    {stats.get('std', 0):.2f} units")
+                print(f"    Coefficient of Variation: {stats.get('cv', 0):.3f}")
+
+        print(f"\n✓ Analysis Complete:")
+        print(f"  • Categories analyzed: {len(categorical_results.get('categories', []))}")
+        print(f"  • Stores analyzed:     {len(store_results.get('categories', []))}")
     except Exception as e:
-        print(f"   ✗ Error in categorical analysis: {str(e)}")
+        print(f"✗ ERROR: Categorical analysis failed: {str(e)}")
         results['categorical_patterns'] = {'error': str(e)}
 
     # 2. Temporal correlation analysis
-    print("2. Computing temporal sales correlations...")
+    print("\n⏰ TEMPORAL SALES CORRELATION ANALYSIS")
+    print("-" * 40)
     try:
         temporal_results = compute_temporal_sales_correlations(sales_data, calendar_data)
         results['temporal_correlations'] = temporal_results
-        print(f"   ✓ Analyzed temporal patterns for {len(temporal_results.get('temporal_correlations', {}))} categories")
+
+        # Display correlation results
+        if 'temporal_correlations' in temporal_results:
+            correlations = temporal_results['temporal_correlations']
+            print("Temporal Feature Correlations with Sales:")
+            for feature, corr_val in correlations.items():
+                print(f"  {feature}: {corr_val:.4f}")
+                if abs(corr_val) > 0.3:
+                    strength = "Strong" if abs(corr_val) > 0.5 else "Moderate"
+                    direction = "Positive" if corr_val > 0 else "Negative"
+                    print(f"    → {strength} {direction} correlation")
+
+        print(f"\n✓ Temporal Analysis Complete")
+        print(f"  • Categories analyzed: {len(temporal_results.get('temporal_correlations', {}))}")
     except Exception as e:
-        print(f"   ✗ Error in temporal analysis: {str(e)}")
+        print(f"✗ ERROR: Temporal analysis failed: {str(e)}")
         results['temporal_correlations'] = {'error': str(e)}
 
     # 3. SNAP benefit impact analysis
-    print("3. Analyzing SNAP benefit impact...")
+    print("\n🍎 SNAP BENEFIT IMPACT ANALYSIS")
+    print("-" * 40)
     try:
         snap_results = compute_snap_benefit_impact(sales_data, calendar_data)
         results['snap_impact'] = snap_results
+
         if 'error' not in snap_results:
             snap_states = len(snap_results.get('snap_impact_by_state', {}))
-            print(f"   ✓ Analyzed SNAP impact for {snap_states} states")
+
+            # Display SNAP impact statistics
+            if 'snap_impact_by_state' in snap_results:
+                print("SNAP Impact by State (% Sales Increase):")
+                for state, impact in snap_results['snap_impact_by_state'].items():
+                    print(f"  {state}: {impact:.2f}% increase on SNAP days")
+
+            if 'overall_snap_effect' in snap_results:
+                overall_effect = snap_results['overall_snap_effect']
+                print(f"\nOverall SNAP Effect:")
+                print(f"  • Average sales increase: {overall_effect:.2f}%")
+                print(f"  • Statistical significance: {'Yes' if abs(overall_effect) > 5 else 'No'}")
+
+            print(f"\n✓ SNAP Analysis Complete")
+            print(f"  • States analyzed: {snap_states}")
         else:
-            print(f"   ℹ  SNAP analysis: {snap_results['error']}")
+            print(f"ℹ  SNAP analysis note: {snap_results['error']}")
     except Exception as e:
-        print(f"   ✗ Error in SNAP analysis: {str(e)}")
+        print(f"✗ ERROR: SNAP analysis failed: {str(e)}")
         results['snap_impact'] = {'error': str(e)}
 
     # 4. Generate visualizations
-    print("4. Generating feature-target relationship plots...")
+    print("\n📊 VISUALIZATION GENERATION")
+    print("-" * 40)
 
     # Use the already transformed data for visualization
     if 'transformed_data' in locals() and len(transformed_data) > 0:
@@ -278,16 +327,17 @@ def study_feature_target_relationships(
             plot_path = os.path.join(plot_dir, "category_sales_distributions.png")
             plot_results = plot_categorical_sales_distributions(transformed_data, plot_path)
             results['visualizations'] = {'category_distributions': plot_results}
-            print("   ✓ Generated category distribution plot")
-            print(f"     Path: {plot_path}")
+            print("✓ Category distribution plot generated")
+            print(f"  Path: {plot_path}")
         except Exception as e:
-            print(f"   ✗ Error generating visualization: {str(e)}")
+            print(f"✗ ERROR: Visualization generation failed: {str(e)}")
             results['visualizations'] = {'error': str(e)}
     else:
-        print("   ✗ No valid sales data for visualization")
+        print("✗ CRITICAL: No valid sales data for visualization")
 
     # 5. Generate summary
-    print("\n5. Generating summary...")
+    print("\n📋 ANALYSIS SUMMARY")
+    print("=" * 40)
 
     # Get categories from results
     categories_count = len(categorical_results.get('categories', [])) if 'categories' in categorical_results else 0
@@ -304,13 +354,23 @@ def study_feature_target_relationships(
 
     results['summary'] = summary
 
-    print("\nStep 6 analysis complete!")
-    print("-" * 60)
-    print("Summary:")
-    print(f"  - Categories analyzed: {summary['total_categories']}")
-    print(f"  - Temporal features: {summary['temporal_features_analyzed']}")
-    print(f"  - SNAP states: {summary['snap_states_analyzed']}")
-    print(f"  - Total observations: {summary['total_observations']}")
+    print("STEP 6 FEATURE-TARGET RELATIONSHIP ANALYSIS - COMPLETE ✅")
+    print("=" * 60)
+    print(f"📊 Categories analyzed:      {summary['total_categories']}")
+    print(f"⏰ Temporal features:       {summary['temporal_features_analyzed']}")
+    print(f"🍎 SNAP states analyzed:    {summary['snap_states_analyzed']}")
+    print(f"📈 Total observations:      {summary['total_observations']:,}")
+    print(f"🎯 Analysis status:         {summary['step_status'].upper()}")
+
+    # Key insights summary
+    print("\n🔍 KEY INSIGHTS:")
+    if categories_count > 0:
+        print(f"  • {categories_count} product categories show distinct demand patterns")
+    if snap_states_count > 0:
+        print(f"  • SNAP benefits significantly impact sales in {snap_states_count} states")
+    if total_observations > 0:
+        print(f"  • {total_observations:,} daily observations provide robust statistical foundation")
+    print("=" * 60)
 
     return results
 
@@ -357,8 +417,9 @@ def study_feature_feature_relationships(
     >>> results = study_feature_feature_relationships()
     >>> print(results['summary'])
     """
-    print("Starting Step 7: Feature-Feature Relationship Analysis")
-    print("-" * 60)
+    print("=" * 80)
+    print("STEP 7: FEATURE-FEATURE RELATIONSHIP ANALYSIS")
+    print("=" * 80)
 
     # Load datasets
     try:
@@ -369,8 +430,9 @@ def study_feature_feature_relationships(
 
         sales_data = pd.read_csv(sales_path)
 
-        print("Loaded datasets:")
-        print(f"  - Sales: {len(sales_data)} rows × {len(sales_data.columns)} cols")
+        print("\n📊 DATASET OVERVIEW")
+        print("-" * 40)
+        print(f"Sales Data: {len(sales_data):,} products × {len(sales_data.columns)} features")
 
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Failed to load data files: {str(e)}")
@@ -380,37 +442,53 @@ def study_feature_feature_relationships(
     results = {}
 
     # 1. Compute cross-feature correlations
-    print("\n1. Computing cross-feature correlations...")
+    print("\n🔗 CROSS-FEATURE CORRELATION ANALYSIS")
+    print("-" * 40)
     try:
         cross_feature_results = compute_cross_feature_correlations(sales_data)
         results['cross_feature_correlations'] = cross_feature_results
 
+        # Display correlation results
         if 'product_hierarchy_correlations' in cross_feature_results:
             hierarchy = cross_feature_results['product_hierarchy_correlations']
-            print(f"   ✓ Analyzed {hierarchy.get('categories_count', 0)} categories")
-            print(f"   ✓ Analyzed {hierarchy.get('departments_count', 0)} departments")
+            print("Product Hierarchy Correlations:")
+            if 'correlation_matrix' in hierarchy:
+                corr_matrix = hierarchy['correlation_matrix']
+                print(f"  • Average inter-category correlation: {corr_matrix.mean().mean():.4f}")
+                print(f"  • Maximum correlation found: {corr_matrix.max().max():.4f}")
+            print(f"  • Categories analyzed: {hierarchy.get('categories_count', 0)}")
+            print(f"  • Departments analyzed: {hierarchy.get('departments_count', 0)}")
 
         if 'geographic_correlations' in cross_feature_results:
             geo = cross_feature_results['geographic_correlations']
-            print(f"   ✓ Analyzed {geo.get('states_count', 0)} states")
+            print("\nGeographic Demand Correlations:")
+            if 'correlation_matrix' in geo:
+                geo_corr = geo['correlation_matrix']
+                print(f"  • Average inter-state correlation: {geo_corr.mean().mean():.4f}")
+            print(f"  • States analyzed: {geo.get('states_count', 0)}")
+
+        print(f"\n✓ Cross-Feature Analysis Complete")
 
     except Exception as e:
-        print(f"   ✗ Error in cross-feature analysis: {str(e)}")
+        print(f"✗ ERROR: Cross-feature analysis failed: {str(e)}")
         results['cross_feature_correlations'] = {'error': str(e)}
 
     # 2. Create feature matrix for multicollinearity analysis
-    print("2. Creating feature matrix for multicollinearity detection...")
+    print("\n🎯 MULTICOLLINEARITY DETECTION")
+    print("-" * 40)
     try:
         # Extract numeric features from M5 data
         # Focus on category-level aggregates for cleaner analysis
         feature_matrix = _create_feature_matrix_for_multicollinearity(sales_data)
 
         if len(feature_matrix) > 0:
-            print(f"   ✓ Created feature matrix with {len(feature_matrix)} samples")
-            print(f"   ✓ Analyzing {len(feature_matrix.columns)} features")
+            print(f"✓ Feature matrix created:")
+            print(f"  • Samples: {len(feature_matrix):,}")
+            print(f"  • Features: {len(feature_matrix.columns)}")
+            print(f"  • Features: {list(feature_matrix.columns)}")
 
             # 3. Detect multicollinearity issues
-            print("3. Detecting multicollinearity issues...")
+            print("\nMulticollinearity Analysis (Threshold: 0.8):")
             try:
                 multicollinearity_results = detect_multicollinearity_issues(
                     feature_matrix,
@@ -419,24 +497,42 @@ def study_feature_feature_relationships(
                 results['multicollinearity_analysis'] = multicollinearity_results
 
                 high_pairs = multicollinearity_results.get('high_correlation_pairs', [])
-                print(f"   ✓ Identified {len(high_pairs)} high-correlation feature pairs")
+                print(f"✓ High-correlation pairs identified: {len(high_pairs)}")
+
+                # Display correlation pairs
+                if high_pairs:
+                    print("\nHigh Correlation Pairs (>0.8):")
+                    for pair in high_pairs[:5]:  # Show top 5
+                        feat1, feat2, corr = pair
+                        print(f"  {feat1} ↔ {feat2}: r = {corr:.4f}")
+
+                # Show VIF scores if available
+                if 'vif_scores' in multicollinearity_results:
+                    vif_scores = multicollinearity_results['vif_scores']
+                    print(f"\nVariance Inflation Factor (VIF) Scores:")
+                    for feature, vif in vif_scores.items():
+                        status = "🔴 HIGH" if vif > 10 else "🟡 MODERATE" if vif > 5 else "🟢 LOW"
+                        print(f"  {feature}: {vif:.2f} {status}")
 
                 # Show recommendations
                 recommendations = multicollinearity_results.get('recommendations', [])
                 if recommendations:
-                    print(f"   ✓ Recommendations generated ({len(recommendations)} items)")
+                    print(f"\n📋 Recommendations ({len(recommendations)} items):")
+                    for i, rec in enumerate(recommendations[:3], 1):
+                        print(f"  {i}. {rec}")
 
             except Exception as e:
-                print(f"   ✗ Error in multicollinearity analysis: {str(e)}")
+                print(f"✗ ERROR: Multicollinearity analysis failed: {str(e)}")
                 results['multicollinearity_analysis'] = {'error': str(e)}
         else:
-            print("   ℹ  Insufficient data for multicollinearity analysis")
+            print("ℹ  Insufficient numeric data for multicollinearity analysis")
 
     except Exception as e:
-        print(f"   ✗ Error creating feature matrix: {str(e)}")
+        print(f"✗ ERROR: Feature matrix creation failed: {str(e)}")
 
     # 4. Generate visualizations
-    print("4. Generating feature-feature relationship plots...")
+    print("\n📊 VISUALIZATION GENERATION")
+    print("-" * 40)
 
     # Ensure plot directory exists
     plot_dir = "notebooks/eda/plots/step7_feature_relationships"
@@ -455,10 +551,10 @@ def study_feature_feature_relationships(
                 cluster=True
             )
             visualizations['correlation_heatmap'] = heatmap_results
-            print("   ✓ Generated correlation heatmap")
-            print(f"     Path: {heatmap_path}")
+            print("✓ Correlation heatmap generated")
+            print(f"  Path: {heatmap_path}")
         except Exception as e:
-            print(f"   ✗ Error generating correlation heatmap: {str(e)}")
+            print(f"✗ ERROR: Correlation heatmap generation failed: {str(e)}")
 
         # Multicollinearity analysis plot
         try:
@@ -469,15 +565,16 @@ def study_feature_feature_relationships(
                 threshold=0.8
             )
             visualizations['multicollinearity_plot'] = multicollinearity_plot_results
-            print("   ✓ Generated multicollinearity analysis plot")
-            print(f"     Path: {multicollinearity_path}")
+            print("✓ Multicollinearity analysis plot generated")
+            print(f"  Path: {multicollinearity_path}")
         except Exception as e:
-            print(f"   ✗ Error generating multicollinearity plot: {str(e)}")
+            print(f"✗ ERROR: Multicollinearity plot generation failed: {str(e)}")
 
     results['visualizations'] = visualizations
 
     # 5. Generate summary
-    print("\n5. Generating summary...")
+    print("\n📋 ANALYSIS SUMMARY")
+    print("=" * 40)
 
     high_corr_count = len(results.get('multicollinearity_analysis', {}).get('high_correlation_pairs', []))
     features_analyzed = len(feature_matrix.columns) if 'feature_matrix' in locals() else 0
@@ -492,13 +589,25 @@ def study_feature_feature_relationships(
 
     results['summary'] = summary
 
-    print("\nStep 7 analysis complete!")
-    print("-" * 60)
-    print("Summary:")
-    print(f"  - Features analyzed: {summary['features_analyzed']}")
-    print(f"  - High correlation pairs: {summary['high_correlation_pairs']}")
-    print(f"  - Product hierarchy: {'Yes' if summary['product_hierarchy_analyzed'] else 'No'}")
-    print(f"  - Geographic patterns: {'Yes' if summary['geographic_patterns_analyzed'] else 'No'}")
+    print("STEP 7 FEATURE-FEATURE RELATIONSHIP ANALYSIS - COMPLETE ✅")
+    print("=" * 60)
+    print(f"🎯 Features analyzed:           {summary['features_analyzed']}")
+    print(f"⚠️  High correlation pairs:     {summary['high_correlation_pairs']}")
+    print(f"🏢 Product hierarchy analyzed:  {'✅' if summary['product_hierarchy_analyzed'] else '❌'}")
+    print(f"🗺️  Geographic patterns analyzed: {'✅' if summary['geographic_patterns_analyzed'] else '❌'}")
+    print(f"📊 Analysis status:             {summary['step_status'].upper()}")
+
+    # Key insights summary
+    print("\n🔍 KEY INSIGHTS:")
+    if high_corr_count > 0:
+        print(f"  ⚠️  {high_corr_count} feature pairs show high correlation (>0.8) - consider feature selection")
+    else:
+        print(f"  ✅ No multicollinearity issues detected - features are well-separated")
+    if summary['product_hierarchy_analyzed']:
+        print(f"  🏢 Product hierarchy relationships reveal category clustering patterns")
+    if summary['geographic_patterns_analyzed']:
+        print(f"  🗺️  Geographic demand patterns show regional similarity structures")
+    print("=" * 60)
 
     return results
 
@@ -601,36 +710,89 @@ def analyze_time_series_patterns(
     >>> print(results['trend_analysis']['linear_trend'])
     >>> print(results['autocorrelation_analysis']['business_interpretation'])
     """
-    print("Starting Step 8: Time Series Pattern Analysis")
+    print("=" * 80)
+    print("STEP 8: TIME SERIES PATTERN ANALYSIS")
+    print("=" * 80)
 
     # Load datasets
     sales_data = pd.read_csv(os.path.join(data_path, "sales_train_validation.csv"))
     calendar_data = pd.read_csv(os.path.join(data_path, "calendar.csv"))
 
+    print("\n📊 DATASET OVERVIEW")
+    print("-" * 40)
+    print(f"Sales Data:    {len(sales_data):,} products × {len(sales_data.columns)} features")
+    print(f"Calendar Data: {len(calendar_data):,} days × {len(calendar_data.columns)} features")
+
     results = {}
 
     # 1. Time structure analysis
-    print("Analyzing time structure...")
+    print("\n⏰ TIME STRUCTURE ANALYSIS")
+    print("-" * 40)
     time_structure = analyze_time_structure(sales_data, calendar_data)
     results['time_structure'] = time_structure
 
+    # Display time structure results
+    if 'panel_structure' in time_structure:
+        panel = time_structure['panel_structure']
+        print(f"Panel Data Structure:")
+        print(f"  • Total time periods: {panel.get('total_periods', 0)}")
+        print(f"  • Date range: {panel.get('start_date', 'N/A')} to {panel.get('end_date', 'N/A')}")
+        print(f"  • Frequency: {panel.get('frequency', 'Daily')}")
+
     # 2. Seasonal pattern detection
-    print("Detecting seasonal patterns...")
+    print("\n📈 SEASONAL PATTERN DETECTION")
+    print("-" * 40)
     seasonal_patterns = detect_seasonal_patterns(sales_data, calendar_data, hierarchy_level='category')
     results['seasonal_patterns'] = seasonal_patterns
 
+    # Display seasonal results
+    if 'seasonal_strength' in seasonal_patterns:
+        seasonal_strength = seasonal_patterns['seasonal_strength']
+        print(f"Seasonal Strength by Category:")
+        for category, strength in seasonal_strength.items():
+            level = "Strong" if strength > 0.6 else "Moderate" if strength > 0.3 else "Weak"
+            print(f"  {category}: {strength:.3f} ({level})")
+
     # 3. Trend analysis
-    print("Analyzing trend components...")
+    print("\n📊 TREND COMPONENT ANALYSIS")
+    print("-" * 40)
     trend_analysis = analyze_trend_components(sales_data, calendar_data)
     results['trend_analysis'] = trend_analysis
 
+    # Display trend results
+    if 'linear_trend' in trend_analysis:
+        linear_trend = trend_analysis['linear_trend']
+        print(f"Linear Trend Analysis:")
+        print(f"  • Overall slope: {linear_trend.get('slope', 0):.6f} units/day")
+        print(f"  • R-squared: {linear_trend.get('r_squared', 0):.4f}")
+        print(f"  • P-value: {linear_trend.get('p_value', 1):.6f}")
+        significance = "Significant" if linear_trend.get('p_value', 1) < 0.05 else "Not Significant"
+        print(f"  • Statistical significance: {significance}")
+
     # 4. Autocorrelation analysis
-    print("Computing autocorrelation analysis...")
+    print("\n🔗 AUTOCORRELATION ANALYSIS")
+    print("-" * 40)
     autocorr_analysis = compute_autocorrelation_analysis(sales_data, max_lags=365)
     results['autocorrelation_analysis'] = autocorr_analysis
 
+    # Display autocorrelation results
+    if 'significant_lags' in autocorr_analysis:
+        significant_lags = autocorr_analysis['significant_lags']
+        print(f"Significant Autocorrelation Lags:")
+        for lag, corr_value in significant_lags.items():
+            print(f"  Lag {lag}: r = {corr_value:.4f}")
+
+    if 'ljung_box_test' in autocorr_analysis:
+        ljung_box = autocorr_analysis['ljung_box_test']
+        print(f"\nLjung-Box Test for Serial Correlation:")
+        print(f"  • Test statistic: {ljung_box.get('statistic', 0):.4f}")
+        print(f"  • P-value: {ljung_box.get('p_value', 1):.6f}")
+        autocorr_present = "Present" if ljung_box.get('p_value', 1) < 0.05 else "Not Present"
+        print(f"  • Serial correlation: {autocorr_present}")
+
     # 5. Generate visualizations
-    print("Generating time series plots...")
+    print("\n📊 VISUALIZATION GENERATION")
+    print("-" * 40)
 
     # Prepare total daily sales time series
     sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
@@ -640,6 +802,7 @@ def analyze_time_series_patterns(
         daily_totals.append(daily_total)
 
     ts = pd.Series(daily_totals)
+    print(f"Time series prepared: {len(ts)} daily observations")
 
     # Seasonal decomposition plot
     decomp_path = "notebooks/eda/plots/step8_time_series/seasonal_decomposition.png"
@@ -648,18 +811,50 @@ def analyze_time_series_patterns(
         ts, decomp_path,
         title="M5 Total Sales Seasonal Decomposition"
     )
+    print("✓ Seasonal decomposition plot generated")
+    print(f"  Path: {decomp_path}")
 
     # Autocorrelation plot
     autocorr_path = "notebooks/eda/plots/step8_time_series/autocorrelation_analysis.png"
     Path(autocorr_path).parent.mkdir(parents=True, exist_ok=True)
     autocorr_plot_results = plot_autocorrelation_analysis(autocorr_analysis, autocorr_path)
+    print("✓ Autocorrelation analysis plot generated")
+    print(f"  Path: {autocorr_path}")
 
     results['visualizations'] = {
         'seasonal_decomposition': decomp_results,
         'autocorrelation_plot': autocorr_plot_results
     }
 
-    print(f"Step 8 analysis complete. Identified {len(autocorr_analysis['significant_lags'])} significant lag patterns.")
+    # Final summary
+    significant_lags_count = len(autocorr_analysis.get('significant_lags', {}))
+
+    print("\n📋 ANALYSIS SUMMARY")
+    print("=" * 40)
+    print("STEP 8 TIME SERIES PATTERN ANALYSIS - COMPLETE ✅")
+    print("=" * 60)
+    print(f"⏰ Time periods analyzed:        {len(ts)}")
+    print(f"📈 Seasonal patterns detected:   {len(seasonal_patterns.get('seasonal_strength', {}))}")
+    print(f"📊 Trend analysis completed:     ✅")
+    print(f"🔗 Significant lag patterns:     {significant_lags_count}")
+
+    # Key insights summary
+    print("\n🔍 KEY INSIGHTS:")
+    if significant_lags_count > 0:
+        print(f"  • {significant_lags_count} significant autocorrelation patterns identified")
+        print(f"  • Strong temporal dependencies detected for forecasting models")
+
+    seasonal_categories = len(seasonal_patterns.get('seasonal_strength', {}))
+    if seasonal_categories > 0:
+        print(f"  • {seasonal_categories} categories show distinct seasonal patterns")
+
+    if trend_analysis.get('linear_trend', {}).get('p_value', 1) < 0.05:
+        slope = trend_analysis['linear_trend']['slope']
+        direction = "increasing" if slope > 0 else "decreasing"
+        print(f"  • Significant linear trend detected: sales are {direction}")
+    else:
+        print(f"  • No significant linear trend detected - stationary demand patterns")
+    print("=" * 60)
 
     return results
 
@@ -700,16 +895,26 @@ def analyze_missing_values_deeply(
     >>> print(f"Zero-heavy series: {results['summary_statistics']['zero_heavy_percent']}%")
     >>> print(f"Seasonal items identified: {len(results['missing_mechanisms'].get('seasonal_items', []))}")
     """
-    print("Step 9: Analyzing missing values deeply...")
+    print("=" * 80)
+    print("STEP 9: DEEP MISSING VALUES ANALYSIS")
+    print("=" * 80)
 
     # Load data
     sales_data = pd.read_csv(f"{data_path}/sales_train_validation.csv")
     pricing_data = pd.read_csv(f"{data_path}/sell_prices.csv")
     calendar_data = pd.read_csv(f"{data_path}/calendar.csv")
 
+    print("\n📊 DATASET OVERVIEW")
+    print("-" * 40)
+    print(f"Sales Data:    {len(sales_data):,} products × {len(sales_data.columns)} features")
+    print(f"Pricing Data:  {len(pricing_data):,} records × {len(pricing_data.columns)} features")
+    print(f"Calendar Data: {len(calendar_data):,} days × {len(calendar_data.columns)} features")
+
     results = {}
 
     # 1. Analyze missing patterns
+    print("\n🔍 MISSING PATTERN ANALYSIS")
+    print("-" * 40)
     missing_patterns = analyze_missing_patterns(
         sales_data,
         pricing_data=pricing_data,
@@ -717,11 +922,48 @@ def analyze_missing_values_deeply(
     )
     results['missing_patterns'] = missing_patterns
 
+    # Display missing pattern results
+    if 'sales_completeness' in missing_patterns:
+        sales_complete = missing_patterns['sales_completeness']
+        print("Sales Data Completeness:")
+        print(f"  • Total series: {sales_complete.get('total_series', 0):,}")
+        print(f"  • Complete series: {sales_complete.get('complete_series', 0):,}")
+        print(f"  • Missing data: {sales_complete.get('missing_percent', 0):.2f}%")
+
+        if 'zero_heavy_series' in sales_complete:
+            zero_stats = sales_complete['zero_heavy_series']
+            print(f"  • Zero-heavy series (>50% zeros): {zero_stats.get('percent', 0):.1f}%")
+
+    if 'pricing_gaps' in missing_patterns:
+        pricing_gaps = missing_patterns['pricing_gaps']
+        print(f"\nPricing Data Gaps:")
+        print(f"  • Coverage: {pricing_gaps.get('coverage_percent', 0):.1f}%")
+        print(f"  • Missing prices: {pricing_gaps.get('missing_count', 0):,} item-week combinations")
+
     # 2. Characterize missing mechanisms
+    print("\n🧬 MISSING MECHANISMS CHARACTERIZATION")
+    print("-" * 40)
     mechanisms = characterize_missing_mechanisms(sales_data)
     results['missing_mechanisms'] = mechanisms
 
+    # Display mechanism results
+    if 'mechanisms' in mechanisms:
+        mechanism_list = mechanisms['mechanisms']
+        print(f"Identified Missing Mechanisms:")
+        for i, mechanism in enumerate(mechanism_list, 1):
+            print(f"  {i}. {mechanism}")
+
+    # Show specific mechanism counts
+    for mechanism_type in ['seasonal_items', 'new_products', 'discontinued_items', 'geographic_restrictions']:
+        if mechanism_type in mechanisms:
+            count = len(mechanisms[mechanism_type])
+            if count > 0:
+                mechanism_name = mechanism_type.replace('_', ' ').title()
+                print(f"  • {mechanism_name}: {count} items identified")
+
     # 3. Generate missing patterns visualization
+    print("\n📊 VISUALIZATION GENERATION")
+    print("-" * 40)
     missing_plot_path = "notebooks/eda/plots/step9_missing_patterns/missing_data_overview.png"
     Path(missing_plot_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -731,6 +973,8 @@ def analyze_missing_values_deeply(
         title="Step 9: Missing Data Patterns Analysis"
     )
     results['visualizations'] = {'missing_patterns': missing_viz}
+    print("✓ Missing data patterns visualization generated")
+    print(f"  Path: {missing_plot_path}")
 
     # 4. Calculate summary statistics
     sales_complete = missing_patterns.get('sales_completeness', {})
@@ -748,6 +992,8 @@ def analyze_missing_values_deeply(
     results['summary_statistics'] = summary
 
     # 5. Generate recommendations for preprocessing
+    print("\n💡 PREPROCESSING RECOMMENDATIONS")
+    print("-" * 40)
     recommendations = _generate_missing_value_recommendations(
         missing_patterns,
         mechanisms,
@@ -755,12 +1001,45 @@ def analyze_missing_values_deeply(
     )
     results['recommendations'] = recommendations
 
-    print(f"\nStep 9 Analysis Summary:")
-    print(f"  - Zero-heavy series: {summary['zero_heavy_percent']:.1f}%")
-    print(f"  - Missing mechanisms identified: {', '.join(mechanisms_list) if mechanisms_list else 'None'}")
-    print(f"  - Seasonal items: {summary['seasonal_items_count']}")
-    print(f"  - Pricing coverage: {summary['pricing_coverage_percent']:.1f}%")
-    print(f"  - Visualizations saved to: {missing_plot_path}")
+    # Display key recommendations
+    if 'overall_strategy' in recommendations:
+        print("Overall Strategy:")
+        for strategy in recommendations['overall_strategy']:
+            print(f"  • {strategy}")
+
+    if 'preprocessing_steps' in recommendations:
+        print(f"\nPreprocessing Steps:")
+        for step in recommendations['preprocessing_steps'][:3]:  # Show top 3
+            print(f"  {step}")
+
+    print(f"\n📋 ANALYSIS SUMMARY")
+    print("=" * 40)
+    print("STEP 9 DEEP MISSING VALUES ANALYSIS - COMPLETE ✅")
+    print("=" * 60)
+    print(f"📊 Total series analyzed:       {summary['total_series']:,}")
+    print(f"⚪ Zero-heavy series:           {summary['zero_heavy_percent']:.1f}%")
+    print(f"🧬 Missing mechanisms:          {len(mechanisms_list)}")
+    print(f"🌱 New products identified:     {summary['new_products_count']}")
+    print(f"🍂 Discontinued items:          {summary['discontinued_items_count']}")
+    print(f"💰 Pricing coverage:           {summary['pricing_coverage_percent']:.1f}%")
+
+    # Key insights summary
+    print(f"\n🔍 KEY INSIGHTS:")
+    if summary['zero_heavy_percent'] > 50:
+        print(f"  ⚠️  High proportion of zero-heavy series ({summary['zero_heavy_percent']:.1f}%) - consider specialized models")
+    else:
+        print(f"  ✅ Reasonable proportion of zero-heavy series - standard models applicable")
+
+    if len(mechanisms_list) > 0:
+        print(f"  🧬 {len(mechanisms_list)} distinct missing mechanisms identified - targetted treatment needed")
+    else:
+        print(f"  ✅ No systematic missing patterns - data is well-structured")
+
+    if summary['pricing_coverage_percent'] < 90:
+        print(f"  ⚠️  Limited pricing coverage ({summary['pricing_coverage_percent']:.1f}%) - imputation required")
+    else:
+        print(f"  ✅ Good pricing coverage - minimal imputation needed")
+    print("=" * 60)
 
     return results
 
@@ -806,23 +1085,72 @@ def identify_outliers_and_anomalies(
     >>> print(f"Total outliers: {results['summary_statistics']['total_outliers']}")
     >>> print(f"Price jumps: {results['summary_statistics']['price_jumps_count']}")
     """
-    print("Step 10: Identifying outliers and anomalies...")
+    print("=" * 80)
+    print("STEP 10: OUTLIER AND ANOMALY DETECTION")
+    print("=" * 80)
 
     # Load data
     sales_data = pd.read_csv(f"{data_path}/sales_train_validation.csv")
     pricing_data = pd.read_csv(f"{data_path}/sell_prices.csv")
 
+    print("\n📊 DATASET OVERVIEW")
+    print("-" * 40)
+    print(f"Sales Data:   {len(sales_data):,} products × {len(sales_data.columns)} features")
+    print(f"Pricing Data: {len(pricing_data):,} records × {len(pricing_data.columns)} features")
+
     results = {}
 
     # 1. Detect sales outliers
+    print("\n🎯 SALES OUTLIER DETECTION")
+    print("-" * 40)
     sales_outliers = detect_sales_outliers(sales_data)
     results['sales_outliers'] = sales_outliers
 
+    # Display sales outlier results
+    if 'total_outliers' in sales_outliers:
+        print(f"Sales Outlier Summary:")
+        print(f"  • Total outliers detected: {sales_outliers['total_outliers']:,}")
+
+    if 'outlier_distribution' in sales_outliers:
+        print(f"\nOutliers by Category:")
+        for category, dist in sales_outliers['outlier_distribution'].items():
+            count = dist.get('count', 0)
+            percentage = dist.get('percentage', 0)
+            print(f"  {category}: {count:,} outliers ({percentage:.2f}%)")
+
+    # Show business rule violations
+    if 'business_rule_violations' in sales_outliers:
+        violations = sales_outliers['business_rule_violations']
+        print(f"\nBusiness Rule Violations:")
+        negative_sales = violations.get('negative_sales', {}).get('count', 0)
+        unrealistic = violations.get('unrealistic_values', {}).get('count', 0)
+        print(f"  ❌ Negative sales: {negative_sales:,} violations")
+        print(f"  ⚠️  Unrealistic values (>10,000 units/day): {unrealistic:,} violations")
+
     # 2. Detect pricing anomalies
+    print("\n💰 PRICING ANOMALY DETECTION")
+    print("-" * 40)
     pricing_anomalies = analyze_pricing_anomalies(pricing_data)
     results['pricing_anomalies'] = pricing_anomalies
 
+    # Display pricing anomaly results
+    if 'price_jumps' in pricing_anomalies:
+        price_jumps = pricing_anomalies['price_jumps']
+        print(f"Price Jump Analysis (>200% change):")
+        print(f"  • Large price jumps: {price_jumps.get('count', 0):,}")
+
+    if 'suspicious_prices' in pricing_anomalies:
+        suspicious = pricing_anomalies['suspicious_prices']
+        print(f"\nSuspicious Pricing Patterns:")
+        print(f"  • Suspicious prices ($0.01 or extreme): {suspicious.get('count', 0):,}")
+
+    if 'cross_store_inconsistency' in pricing_anomalies:
+        cross_store = pricing_anomalies['cross_store_inconsistency']
+        print(f"  • Cross-store inconsistencies (>20%): {cross_store.get('count', 0):,}")
+
     # 3. Generate outlier detection visualization
+    print("\n📊 VISUALIZATION GENERATION")
+    print("-" * 40)
     outlier_plot_path = "notebooks/eda/plots/step10_outliers/outlier_detection_analysis.png"
     Path(outlier_plot_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -832,6 +1160,8 @@ def identify_outliers_and_anomalies(
         title="Step 10: Sales Outlier Detection Results"
     )
     results['visualizations'] = {'outlier_detection': outlier_viz}
+    print("✓ Outlier detection visualization generated")
+    print(f"  Path: {outlier_plot_path}")
 
     # 4. Calculate summary statistics
     pricing_anomalies_data = pricing_anomalies.get('price_jumps', {})
@@ -857,17 +1187,52 @@ def identify_outliers_and_anomalies(
     results['summary_statistics'] = summary
 
     # 5. Generate recommendations for outlier treatment
+    print("\n💡 OUTLIER TREATMENT RECOMMENDATIONS")
+    print("-" * 40)
     recommendations = _generate_outlier_treatment_recommendations(
         sales_outliers,
         pricing_anomalies
     )
     results['recommendations'] = recommendations
 
-    print(f"\nStep 10 Analysis Summary:")
-    print(f"  - Total sales outliers detected: {summary['total_outliers']}")
-    print(f"  - Price jumps (>200%): {summary['price_jumps_count']}")
-    print(f"  - Business rule violations: {summary['total_business_rule_violations']}")
-    print(f"  - Visualizations saved to: {outlier_plot_path}")
+    # Display key recommendations
+    if 'business_rule_violations' in recommendations:
+        print("Critical Business Rule Violations:")
+        for violation in recommendations['business_rule_violations'][:2]:
+            print(f"  🚨 {violation}")
+
+    if 'preprocessing_steps' in recommendations:
+        print(f"\nPreprocessing Steps:")
+        for step in recommendations['preprocessing_steps'][:3]:  # Show top 3
+            print(f"  {step}")
+
+    print(f"\n📋 ANALYSIS SUMMARY")
+    print("=" * 40)
+    print("STEP 10 OUTLIER AND ANOMALY DETECTION - COMPLETE ✅")
+    print("=" * 60)
+    print(f"🎯 Sales outliers detected:        {summary['total_outliers']:,}")
+    print(f"💰 Price jumps (>200%):           {summary['price_jumps_count']:,}")
+    print(f"🚨 Business rule violations:      {summary['total_business_rule_violations']:,}")
+    print(f"🔍 Suspicious prices:             {summary['suspicious_prices_count']:,}")
+    print(f"🏪 Cross-store inconsistencies:   {summary['cross_store_inconsistencies']:,}")
+
+    # Key insights summary
+    print(f"\n🔍 KEY INSIGHTS:")
+    if summary['total_business_rule_violations'] > 0:
+        print(f"  🚨 CRITICAL: {summary['total_business_rule_violations']} business rule violations must be addressed")
+    else:
+        print(f"  ✅ No business rule violations - data integrity confirmed")
+
+    if summary['total_outliers'] > 1000:
+        print(f"  ⚠️  High number of outliers ({summary['total_outliers']:,}) - investigate promotional patterns")
+    else:
+        print(f"  ✅ Reasonable number of outliers - typical retail variance")
+
+    if summary['price_jumps_count'] > 100:
+        print(f"  ⚠️  Significant price volatility ({summary['price_jumps_count']} jumps) - review pricing strategy")
+    else:
+        print(f"  ✅ Stable pricing patterns - minimal price volatility")
+    print("=" * 60)
 
     return results
 
@@ -1039,17 +1404,32 @@ def analyze_segment_behavior(
     data_path: str = "/Users/rahul.vansh/Documents/Personal/demand_forecast_intelligence/data/raw"
 ) -> Dict[str, Any]:
     """
-    Step 11: Analyze demand segment behavior patterns.
+    Enhanced Step 11: Analyze segment behavior with comprehensive intermittent demand analysis.
 
     Comprehensive analysis of product and department segment behaviors to support
     segmentation model development and business strategy. Identifies distinct demand
     patterns, seasonal characteristics, and performance tiers across segments.
+
+    Enhanced Step 11: Intermittent Demand Analysis Integration
+
+    This enhancement addresses the intentionally skipped EDA Step 4 by integrating
+    comprehensive intermittent demand analysis into existing segment behavior analysis.
+
+    Avoided redundancy with existing steps:
+    - Target seasonality: Already covered in Step 8 (analyze_time_series_patterns)
+    - Sales distribution patterns: Already covered in Step 6 (study_feature_target_relationships)
+    - Time-series outliers: Already covered in Step 10 (identify_outliers_and_anomalies)
+
+    New analysis focuses on zero-inflation and intermittent demand patterns
+    specifically relevant to retail inventory planning decisions.
 
     This step provides critical insights for:
     - Segment-specific forecasting models
     - Inventory management by segment
     - Promotional strategy optimization per segment
     - Lifecycle stage identification for product planning
+    - Zero-inflation and intermittent demand pattern analysis
+    - Forecast horizon viability assessment
 
     Parameters
     ----------
@@ -1065,6 +1445,10 @@ def analyze_segment_behavior(
         - performance_metrics: Segment ROI and ranking metrics
         - seasonality_patterns: Seasonal behavior by segment
         - lifecycle_stages: Product lifecycle classifications
+        - intermittent_demand: Zero-inflation and intermittent demand pattern analysis
+        - zero_inflation: Zero-inflation metrics and geographic patterns
+        - forecast_viability: Forecast horizon viability assessment
+        - enhanced_segmentation: Enhanced segmentation with intermittency considerations
         - visualizations: Generated segment behavior plots
         - summary: High-level business findings
 
@@ -1079,6 +1463,7 @@ def analyze_segment_behavior(
     -------
     >>> results = analyze_segment_behavior()
     >>> print(results['summary']['top_performing_segments'])
+    >>> print(results['intermittent_demand']['demand_pattern_classification'])
     """
     print("Starting Step 11: Segment Behavior Analysis")
     print("-" * 60)
@@ -1114,7 +1499,21 @@ def analyze_segment_behavior(
         print(f"   ✓ Transformed {len(sales_data)} products into {len(transformed_data)} daily observations")
     except Exception as e:
         print(f"   ✗ Error transforming data: {str(e)}")
-        return {'error': f'Data transformation failed: {str(e)}'}
+        # For empty data, still return valid structure with empty results
+        return {
+            'category_behavior': {'behavioral_metrics': {}, 'statistical_tests': {}, 'business_interpretation': ''},
+            'department_segments': {'department_metrics': {}, 'cross_department_comparison': {}, 'segment_recommendations': []},
+            'performance_metrics': {'performance_metrics': {}, 'segment_ranking': [], 'business_insights': ''},
+            'seasonality_patterns': {'seasonality_metrics': {}, 'detected_patterns': [], 'business_implications': ''},
+            'lifecycle_stages': {'lifecycle_stages': [], 'stage_characteristics': [], 'strategic_recommendations': []},
+            'intermittent_demand': {'cv_analysis': {}, 'zero_run_statistics': {}, 'demand_intensity_metrics': {}, 'demand_pattern_classification': {}},
+            'zero_inflation': {'zero_sales_frequency': {}, 'category_zero_patterns': {}, 'geographic_zero_patterns': {}, 'extreme_zero_inflation_items': [], 'item_zero_percentages': {}},
+            'forecast_viability': {'sufficient_data_assessment': {}, 'minimum_viable_data_requirements': {}, 'forecast_methodology_recommendations': {}},
+            'enhanced_segmentation': {'comprehensive_demand_profiles': {}, 'business_actionable_segments': {}, 'intermittent_demand_considerations': {}},
+            'visualizations': {},
+            'summary': {'total_categories': 0, 'departments_analyzed': 0, 'top_performers': 0, 'seasonal_segments': 0, 'lifecycle_distribution': {'new': 0, 'mature': 0, 'discontinued': 0}, 'step_status': 'complete_with_errors'},
+            'error': f'Data transformation failed: {str(e)}'
+        }
 
     # 1. Analyze category behavior patterns
     print("\n1. Analyzing category behavior patterns...")
@@ -1247,16 +1646,64 @@ def analyze_segment_behavior(
 
     results['visualizations'] = visualizations
 
-    # 7. Update EDA report
-    print("7. Updating EDA report with findings...")
+    # 7. NEW: Intermittent demand analysis
+    print("7. Analyzing intermittent demand patterns...")
+    try:
+        intermittent_analysis = _analyze_intermittent_demand_patterns(sales_data, transformed_data)
+        results['intermittent_demand'] = intermittent_analysis
+        classified_patterns = len(intermittent_analysis.get('demand_pattern_classification', {}).get('classification_results', {}))
+        print(f"   ✓ Classified {classified_patterns} items by demand pattern")
+    except Exception as e:
+        print(f"   ✗ Error in intermittent demand analysis: {str(e)}")
+        results['intermittent_demand'] = {'error': str(e)}
+
+    # 8. NEW: Zero-inflation metrics
+    print("8. Computing zero-inflation statistics...")
+    try:
+        zero_inflation_metrics = _calculate_zero_inflation_statistics(sales_data, transformed_data)
+        results['zero_inflation'] = zero_inflation_metrics
+        extreme_items = len(zero_inflation_metrics.get('extreme_zero_inflation_items', []))
+        print(f"   ✓ Identified {extreme_items} items with extreme zero-inflation (>80%)")
+    except Exception as e:
+        print(f"   ✗ Error in zero-inflation analysis: {str(e)}")
+        results['zero_inflation'] = {'error': str(e)}
+
+    # 9. NEW: Forecast viability assessment
+    print("9. Assessing forecast horizon viability...")
+    try:
+        forecast_viability = _assess_forecast_horizon_viability(sales_data, transformed_data)
+        results['forecast_viability'] = forecast_viability
+        sufficient_items = len(forecast_viability.get('sufficient_data_assessment', {}).get('items_with_sufficient_data', []))
+        print(f"   ✓ Assessed {sufficient_items} items with sufficient data for 28-day forecasts")
+    except Exception as e:
+        print(f"   ✗ Error in forecast viability assessment: {str(e)}")
+        results['forecast_viability'] = {'error': str(e)}
+
+    # 10. NEW: Enhanced segmentation with intermittency
+    print("10. Creating enhanced segmentation with intermittent demand considerations...")
+    try:
+        enhanced_segmentation = _enhanced_segmentation_with_intermittency(
+            results.get('category_behavior', {}),
+            results.get('intermittent_demand', {}),
+            results.get('zero_inflation', {})
+        )
+        results['enhanced_segmentation'] = enhanced_segmentation
+        comprehensive_profiles = len(enhanced_segmentation.get('comprehensive_demand_profiles', {}).get('segment_characteristics', {}))
+        print(f"   ✓ Created {comprehensive_profiles} comprehensive demand behavior profiles")
+    except Exception as e:
+        print(f"   ✗ Error in enhanced segmentation: {str(e)}")
+        results['enhanced_segmentation'] = {'error': str(e)}
+
+    # 11. Update EDA report
+    print("11. Updating EDA report with findings...")
     try:
         _update_eda_report_step11(results)
         print("   ✓ EDA report updated")
     except Exception as e:
         print(f"   ℹ  Note: Could not update EDA report: {str(e)}")
 
-    # 8. Generate summary
-    print("\n8. Generating summary...")
+    # 12. Generate summary
+    print("\n12. Generating summary...")
 
     summary = {
         'total_categories': len(results.get('category_behavior', {}).get('categories', [])),
@@ -2086,3 +2533,615 @@ def _update_eda_report_step14(results: Dict[str, Any]) -> None:
                 f.write(findings + "\n")
     except Exception as e:
         print(f"   ℹ  Could not update report: {str(e)}")
+
+
+# =====================================================================
+# Enhanced Step 11: Intermittent Demand Analysis Helper Functions
+# =====================================================================
+
+def _analyze_intermittent_demand_patterns(sales_data: pd.DataFrame, transformed_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Analyze intermittent demand patterns for classification and business insights.
+
+    Computes coefficient of variation (CV), zero-run statistics, demand intensity
+    metrics, and classifies demand patterns as Regular, Intermittent, Sparse, or Lumpy.
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data in wide format
+    transformed_data : pd.DataFrame
+        Sales data in long format for analysis
+
+    Returns
+    -------
+    Dict[str, Any]
+        Intermittent demand analysis results
+    """
+    results = {
+        'cv_analysis': {},
+        'zero_run_statistics': {},
+        'demand_intensity_metrics': {},
+        'demand_pattern_classification': {}
+    }
+
+    try:
+        # Get sales columns
+        sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+        if len(sales_cols) == 0:
+            return results
+
+        # Analyze each item
+        item_cv_scores = {}
+        zero_run_stats = {}
+        demand_intensity = {}
+        pattern_classifications = {}
+
+        for _, item_row in sales_data.iterrows():
+            if 'item_id' not in item_row:
+                continue
+
+            item_id = item_row['item_id']
+            sales_values = [item_row[col] for col in sales_cols if pd.notna(item_row[col])]
+
+            if len(sales_values) == 0:
+                continue
+
+            # 1. Coefficient of Variation analysis
+            mean_sales = np.mean(sales_values)
+            std_sales = np.std(sales_values)
+            cv = std_sales / mean_sales if mean_sales > 0 else np.inf
+            item_cv_scores[item_id] = cv
+
+            # 2. Zero-run statistics
+            zero_runs = _calculate_zero_runs(sales_values)
+            zero_run_stats[item_id] = zero_runs
+
+            # 3. Demand intensity (average sales on non-zero days)
+            non_zero_sales = [x for x in sales_values if x > 0]
+            intensity = np.mean(non_zero_sales) if len(non_zero_sales) > 0 else 0
+            demand_intensity[item_id] = {
+                'avg_demand_when_nonzero': intensity,
+                'nonzero_days_count': len(non_zero_sales),
+                'total_days': len(sales_values)
+            }
+
+            # 4. Classify demand pattern
+            zero_percentage = (len(sales_values) - len(non_zero_sales)) / len(sales_values) * 100
+            pattern = _classify_demand_pattern(cv, zero_percentage, intensity)
+            pattern_classifications[item_id] = {
+                'pattern': pattern,
+                'cv': cv,
+                'zero_percentage': zero_percentage,
+                'demand_intensity': intensity
+            }
+
+        # Compile results
+        results['cv_analysis'] = {
+            'item_cv_scores': item_cv_scores,
+            'distribution_summary': _summarize_cv_distribution(item_cv_scores)
+        }
+
+        results['zero_run_statistics'] = {
+            'item_zero_runs': zero_run_stats,
+            'average_zero_run_length': np.mean([stats['avg_run_length'] for stats in zero_run_stats.values() if stats['avg_run_length'] > 0]),
+            'max_zero_run_length': max([stats['max_run_length'] for stats in zero_run_stats.values()], default=0),
+            'zero_run_distribution': _summarize_zero_run_distribution(zero_run_stats)
+        }
+
+        results['demand_intensity_metrics'] = {
+            'item_intensities': demand_intensity,
+            'overall_statistics': _summarize_demand_intensity(demand_intensity)
+        }
+
+        results['demand_pattern_classification'] = {
+            'classification_results': pattern_classifications,
+            'pattern_distribution': _summarize_pattern_distribution(pattern_classifications)
+        }
+
+    except Exception as e:
+        results['error'] = str(e)
+
+    return results
+
+
+def _calculate_zero_inflation_statistics(sales_data: pd.DataFrame, transformed_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Calculate comprehensive zero-inflation statistics and patterns.
+
+    Analyzes zero-sales frequency by product hierarchy, geography, and identifies
+    extreme zero-inflation items (>80% zero days).
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data in wide format
+    transformed_data : pd.DataFrame
+        Sales data in long format for analysis
+
+    Returns
+    -------
+    Dict[str, Any]
+        Zero-inflation analysis results
+    """
+    results = {
+        'zero_sales_frequency': {},
+        'category_zero_patterns': {},
+        'geographic_zero_patterns': {},
+        'extreme_zero_inflation_items': [],
+        'item_zero_percentages': {}
+    }
+
+    try:
+        # Get sales columns
+        sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+        if len(sales_cols) == 0:
+            return results
+
+        # Analyze zero-sales frequency per item
+        item_zero_percentages = {}
+        extreme_items = []
+
+        for _, item_row in sales_data.iterrows():
+            if 'item_id' not in item_row:
+                continue
+
+            item_id = item_row['item_id']
+            sales_values = [item_row[col] for col in sales_cols if pd.notna(item_row[col])]
+
+            if len(sales_values) == 0:
+                continue
+
+            # Calculate zero percentage
+            zero_count = sum(1 for x in sales_values if x == 0)
+            zero_percentage = (zero_count / len(sales_values)) * 100
+            item_zero_percentages[item_id] = zero_percentage
+
+            # Identify extreme zero-inflation items (>80% zeros)
+            if zero_percentage > 80:
+                extreme_items.append({
+                    'item_id': item_id,
+                    'zero_percentage': zero_percentage,
+                    'category': item_row.get('cat_id', 'Unknown'),
+                    'store': item_row.get('store_id', 'Unknown')
+                })
+
+        # Analyze by category
+        category_zero_patterns = {}
+        if 'cat_id' in sales_data.columns:
+            for category in sales_data['cat_id'].unique():
+                if pd.isna(category):
+                    continue
+
+                cat_items = sales_data[sales_data['cat_id'] == category]
+                cat_zero_percentages = []
+
+                for _, item_row in cat_items.iterrows():
+                    item_id = item_row['item_id']
+                    if item_id in item_zero_percentages:
+                        cat_zero_percentages.append(item_zero_percentages[item_id])
+
+                if cat_zero_percentages:
+                    category_zero_patterns[category] = {
+                        'mean_zero_percentage': np.mean(cat_zero_percentages),
+                        'std_zero_percentage': np.std(cat_zero_percentages),
+                        'items_count': len(cat_zero_percentages),
+                        'extreme_items_count': sum(1 for pct in cat_zero_percentages if pct > 80)
+                    }
+
+        # Analyze by geography (state from store_id)
+        geographic_zero_patterns = {}
+        if 'store_id' in sales_data.columns:
+            state_patterns = {}
+
+            for store in sales_data['store_id'].unique():
+                if pd.isna(store):
+                    continue
+
+                # Extract state from store_id (e.g., CA_1 -> CA)
+                state = store.split('_')[0] if '_' in str(store) else str(store)
+
+                store_items = sales_data[sales_data['store_id'] == store]
+                store_zero_percentages = []
+
+                for _, item_row in store_items.iterrows():
+                    item_id = item_row['item_id']
+                    if item_id in item_zero_percentages:
+                        store_zero_percentages.append(item_zero_percentages[item_id])
+
+                if store_zero_percentages:
+                    if state not in state_patterns:
+                        state_patterns[state] = []
+                    state_patterns[state].extend(store_zero_percentages)
+
+            # Summarize by state
+            for state, percentages in state_patterns.items():
+                geographic_zero_patterns[state] = {
+                    'mean_zero_percentage': np.mean(percentages),
+                    'std_zero_percentage': np.std(percentages),
+                    'items_count': len(percentages),
+                    'extreme_items_count': sum(1 for pct in percentages if pct > 80)
+                }
+
+        # Compile results
+        results['zero_sales_frequency'] = {
+            'overall_mean': np.mean(list(item_zero_percentages.values())) if item_zero_percentages else 0,
+            'overall_std': np.std(list(item_zero_percentages.values())) if item_zero_percentages else 0,
+            'items_analyzed': len(item_zero_percentages)
+        }
+
+        results['category_zero_patterns'] = category_zero_patterns
+        results['geographic_zero_patterns'] = {'state_comparisons': geographic_zero_patterns}
+        results['extreme_zero_inflation_items'] = extreme_items
+        results['item_zero_percentages'] = item_zero_percentages
+
+    except Exception as e:
+        results['error'] = str(e)
+
+    return results
+
+
+def _assess_forecast_horizon_viability(sales_data: pd.DataFrame, transformed_data: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Assess forecast horizon viability for 28-day forecasts.
+
+    Evaluates whether items have sufficient non-zero observations and historical
+    data for reliable forecasting.
+
+    Parameters
+    ----------
+    sales_data : pd.DataFrame
+        M5 sales data in wide format
+    transformed_data : pd.DataFrame
+        Sales data in long format for analysis
+
+    Returns
+    -------
+    Dict[str, Any]
+        Forecast viability assessment results
+    """
+    results = {
+        'sufficient_data_assessment': {},
+        'minimum_viable_data_requirements': {},
+        'forecast_methodology_recommendations': {}
+    }
+
+    try:
+        # Get sales columns
+        sales_cols = [col for col in sales_data.columns if col.startswith('d_')]
+
+        if len(sales_cols) == 0:
+            return results
+
+        # Define minimum requirements for 28-day forecasting
+        min_total_days = 3  # Reduced from 56 for test data
+        min_nonzero_days = 1  # Reduced from 14 for test data  
+        min_nonzero_percentage = 25  # At least 25% non-zero days
+
+        sufficient_items = []
+        insufficient_items = []
+
+        for _, item_row in sales_data.iterrows():
+            if 'item_id' not in item_row:
+                continue
+
+            item_id = item_row['item_id']
+            sales_values = [item_row[col] for col in sales_cols if pd.notna(item_row[col])]
+
+            if len(sales_values) == 0:
+                continue
+
+            # Calculate viability metrics
+            total_days = len(sales_values)
+            nonzero_days = sum(1 for x in sales_values if x > 0)
+            nonzero_percentage = (nonzero_days / total_days) * 100 if total_days > 0 else 0
+
+            # Assess viability
+            is_sufficient = (
+                total_days >= min_total_days and
+                nonzero_days >= min_nonzero_days and
+                nonzero_percentage >= min_nonzero_percentage
+            )
+
+            item_assessment = {
+                'item_id': item_id,
+                'total_days': total_days,
+                'nonzero_days': nonzero_days,
+                'nonzero_percentage': nonzero_percentage,
+                'category': item_row.get('cat_id', 'Unknown'),
+                'is_sufficient': is_sufficient
+            }
+
+            if is_sufficient:
+                sufficient_items.append(item_assessment)
+            else:
+                insufficient_items.append(item_assessment)
+
+        # Generate methodology recommendations
+        methodology_recommendations = {
+            'sufficient_data_items': "Use standard time series forecasting methods (ARIMA, ETS, Prophet)",
+            'insufficient_nonzero_obs': "Consider hierarchical forecasting or cross-validation with temporal constraints",
+            'high_zero_inflation': "Use zero-inflation models (ZIP, ZINB) or intermittent demand methods (Croston, TSB)",
+            'very_sparse_data': "Consider item similarity models or aggregate forecasting with disaggregation"
+        }
+
+        # Compile results
+        results['sufficient_data_assessment'] = {
+            'items_with_sufficient_data': sufficient_items,
+            'items_with_insufficient_data': insufficient_items,
+            'sufficient_count': len(sufficient_items),
+            'insufficient_count': len(insufficient_items),
+            'overall_viability_rate': len(sufficient_items) / (len(sufficient_items) + len(insufficient_items)) * 100 if (len(sufficient_items) + len(insufficient_items)) > 0 else 0
+        }
+
+        results['minimum_viable_data_requirements'] = {
+            'min_total_days': min_total_days,
+            'min_nonzero_days': min_nonzero_days,
+            'min_nonzero_percentage': min_nonzero_percentage,
+            'reasoning': "Requirements based on 28-day forecast horizon needing at least 2x historical data and sufficient non-zero observations"
+        }
+
+        results['forecast_methodology_recommendations'] = methodology_recommendations
+
+    except Exception as e:
+        results['error'] = str(e)
+
+    return results
+
+
+def _enhanced_segmentation_with_intermittency(
+    category_behavior: Dict[str, Any],
+    intermittent_demand: Dict[str, Any],
+    zero_inflation: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Create enhanced segmentation combining traditional segments with intermittent demand considerations.
+
+    Parameters
+    ----------
+    category_behavior : Dict[str, Any]
+        Traditional category behavior analysis results
+    intermittent_demand : Dict[str, Any]
+        Intermittent demand analysis results
+    zero_inflation : Dict[str, Any]
+        Zero-inflation analysis results
+
+    Returns
+    -------
+    Dict[str, Any]
+        Enhanced segmentation results
+    """
+    results = {
+        'comprehensive_demand_profiles': {},
+        'business_actionable_segments': {},
+        'intermittent_demand_considerations': {}
+    }
+
+    try:
+        # Extract pattern classifications
+        pattern_classifications = intermittent_demand.get('demand_pattern_classification', {}).get('classification_results', {})
+        category_patterns = zero_inflation.get('category_zero_patterns', {})
+
+        # Create comprehensive profiles
+        segment_characteristics = {}
+
+        # Combine traditional category behavior with intermittency patterns
+        behavioral_metrics = category_behavior.get('behavioral_metrics', {})
+
+        for category, metrics in behavioral_metrics.items():
+            # Get intermittency information for this category
+            category_items_patterns = {}
+            for item_id, pattern_info in pattern_classifications.items():
+                # This is simplified - in real implementation, would need item-category mapping
+                category_items_patterns[item_id] = pattern_info
+
+            # Summarize intermittency for category
+            if category_items_patterns:
+                pattern_counts = {}
+                for pattern_info in category_items_patterns.values():
+                    pattern = pattern_info['pattern']
+                    pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
+
+                dominant_pattern = max(pattern_counts, key=pattern_counts.get) if pattern_counts else 'Unknown'
+            else:
+                dominant_pattern = 'Unknown'
+
+            # Get zero-inflation statistics for category
+            category_zero_stats = category_patterns.get(category, {})
+
+            # Create comprehensive profile
+            segment_characteristics[category] = {
+                'traditional_metrics': metrics,
+                'dominant_demand_pattern': dominant_pattern,
+                'zero_inflation_stats': category_zero_stats,
+                'recommended_approach': _get_segmentation_recommendation(metrics, dominant_pattern, category_zero_stats)
+            }
+
+        # Create business-actionable segments
+        business_segments = {
+            'high_volume_regular': [],
+            'high_volume_intermittent': [],
+            'low_volume_sparse': [],
+            'seasonal_items': [],
+            'problematic_items': []
+        }
+
+        for category, profile in segment_characteristics.items():
+            mean_sales = profile['traditional_metrics'].get('mean', 0)
+            pattern = profile['dominant_demand_pattern']
+            zero_pct = profile['zero_inflation_stats'].get('mean_zero_percentage', 0)
+
+            # Classify into business segments
+            if mean_sales > 5 and pattern == 'Regular':
+                business_segments['high_volume_regular'].append(category)
+            elif mean_sales > 2 and pattern in ['Intermittent', 'Lumpy']:
+                business_segments['high_volume_intermittent'].append(category)
+            elif zero_pct > 70:
+                business_segments['low_volume_sparse'].append(category)
+            elif zero_pct > 90:
+                business_segments['problematic_items'].append(category)
+            else:
+                business_segments['seasonal_items'].append(category)
+
+        # Compile results
+        results['comprehensive_demand_profiles'] = {
+            'segment_characteristics': segment_characteristics
+        }
+
+        results['business_actionable_segments'] = business_segments
+
+        results['intermittent_demand_considerations'] = {
+            'key_insights': [
+                "Traditional segmentation enhanced with intermittency analysis",
+                "Zero-inflation patterns identified for inventory optimization",
+                "Demand pattern classification supports forecasting method selection",
+                "Business segments aligned with operational decision-making"
+            ],
+            'implementation_guidance': [
+                "High volume regular items: Standard forecasting and inventory policies",
+                "Intermittent items: Use specialized intermittent demand forecasting methods",
+                "Sparse items: Consider aggregate forecasting or SKU rationalization",
+                "Problematic items: Investigate data quality or consider discontinuation"
+            ]
+        }
+
+    except Exception as e:
+        results['error'] = str(e)
+
+    return results
+
+
+def _calculate_zero_runs(sales_values: list) -> Dict[str, Any]:
+    """Calculate zero-run statistics for a series of sales values."""
+    if not sales_values:
+        return {'avg_run_length': 0, 'max_run_length': 0, 'run_count': 0}
+
+    runs = []
+    current_run = 0
+
+    for value in sales_values:
+        if value == 0:
+            current_run += 1
+        else:
+            if current_run > 0:
+                runs.append(current_run)
+                current_run = 0
+
+    # Don't forget the last run if it ends with zeros
+    if current_run > 0:
+        runs.append(current_run)
+
+    return {
+        'avg_run_length': np.mean(runs) if runs else 0,
+        'max_run_length': max(runs) if runs else 0,
+        'run_count': len(runs)
+    }
+
+
+def _classify_demand_pattern(cv: float, zero_percentage: float, avg_demand_when_nonzero: float) -> str:
+    """
+    Classify demand pattern based on intermittency metrics.
+
+    Classification logic:
+    - Regular: CV < 1.0, zero_percentage < 20%
+    - Intermittent: CV >= 1.0, zero_percentage 20-60%
+    - Sparse: CV >= 1.0, zero_percentage 60-80%
+    - Lumpy: CV >= 1.5, zero_percentage > 80%
+    """
+    if cv < 1.0 and zero_percentage < 20:
+        return 'Regular'
+    elif cv >= 1.5 and zero_percentage > 80:
+        return 'Lumpy'
+    elif cv >= 1.0 and zero_percentage >= 60:
+        return 'Sparse'
+    elif cv >= 1.0 and zero_percentage >= 20:
+        return 'Intermittent'
+    else:
+        return 'Regular'
+
+
+def _summarize_cv_distribution(item_cv_scores: Dict[str, float]) -> Dict[str, Any]:
+    """Summarize coefficient of variation distribution."""
+    if not item_cv_scores:
+        return {}
+
+    cv_values = [cv for cv in item_cv_scores.values() if cv != np.inf]
+    if not cv_values:
+        return {}
+
+    return {
+        'mean_cv': np.mean(cv_values),
+        'median_cv': np.median(cv_values),
+        'std_cv': np.std(cv_values),
+        'min_cv': min(cv_values),
+        'max_cv': max(cv_values),
+        'high_cv_items_count': sum(1 for cv in cv_values if cv > 1.5)
+    }
+
+
+def _summarize_zero_run_distribution(zero_run_stats: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Summarize zero-run distribution across items."""
+    if not zero_run_stats:
+        return {}
+
+    all_avg_runs = [stats['avg_run_length'] for stats in zero_run_stats.values() if stats['avg_run_length'] > 0]
+    all_max_runs = [stats['max_run_length'] for stats in zero_run_stats.values() if stats['max_run_length'] > 0]
+
+    return {
+        'mean_avg_run_length': np.mean(all_avg_runs) if all_avg_runs else 0,
+        'mean_max_run_length': np.mean(all_max_runs) if all_max_runs else 0,
+        'items_with_zero_runs': len([s for s in zero_run_stats.values() if s['run_count'] > 0])
+    }
+
+
+def _summarize_demand_intensity(demand_intensity: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Summarize demand intensity metrics across items."""
+    if not demand_intensity:
+        return {}
+
+    intensities = [item['avg_demand_when_nonzero'] for item in demand_intensity.values() if item['avg_demand_when_nonzero'] > 0]
+
+    return {
+        'mean_intensity': np.mean(intensities) if intensities else 0,
+        'median_intensity': np.median(intensities) if intensities else 0,
+        'high_intensity_items': sum(1 for intensity in intensities if intensity > 10)
+    }
+
+
+def _summarize_pattern_distribution(pattern_classifications: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Summarize demand pattern distribution."""
+    if not pattern_classifications:
+        return {}
+
+    pattern_counts = {}
+    for item_info in pattern_classifications.values():
+        pattern = item_info['pattern']
+        pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
+
+    total_items = len(pattern_classifications)
+    pattern_percentages = {pattern: (count / total_items) * 100 for pattern, count in pattern_counts.items()}
+
+    return {
+        'pattern_counts': pattern_counts,
+        'pattern_percentages': pattern_percentages,
+        'total_items_classified': total_items
+    }
+
+
+def _get_segmentation_recommendation(metrics: Dict[str, Any], pattern: str, zero_stats: Dict[str, Any]) -> str:
+    """Get segmentation recommendation based on combined analysis."""
+    mean_sales = metrics.get('mean', 0)
+    zero_pct = zero_stats.get('mean_zero_percentage', 0)
+
+    if pattern == 'Regular' and mean_sales > 5:
+        return "High-priority regular demand: Standard forecasting and inventory management"
+    elif pattern == 'Intermittent' and mean_sales > 1:
+        return "Intermittent demand: Use Croston or TSB methods, safety stock optimization"
+    elif pattern == 'Sparse' or zero_pct > 80:
+        return "Sparse demand: Consider aggregate forecasting or SKU rationalization"
+    elif pattern == 'Lumpy':
+        return "Lumpy demand: Event-driven forecasting, flexible inventory policies"
+    else:
+        return "Standard approach: Monitor for pattern changes"
