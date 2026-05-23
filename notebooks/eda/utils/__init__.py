@@ -3,6 +3,7 @@
 
 # Import modules as they are implemented:
 from . import basic_validation
+from . import feature_profiling
 from . import correlation_analysis
 from . import statistical_analysis
 from . import visualization
