@@ -32,6 +32,7 @@ class EDAContext:
     output_dir: Path = field(default_factory=lambda: Path("data/eda/outputs"))
     plots_dir: Path = field(default_factory=lambda: Path("eda/plots"))
     results: Dict[str, Any] = field(default_factory=dict)
+    config: Optional[Dict[str, Any]] = field(default=None)
 
     # Private attributes for lazy loading
     _sales_data: Optional[pd.DataFrame] = field(default=None, init=False, repr=False)
