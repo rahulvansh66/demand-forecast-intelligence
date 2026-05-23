@@ -1540,7 +1540,7 @@ def analyze_distribution_drift(
     # 6. Generate visualizations
     print("6. Generating distribution drift visualizations...")
 
-    plot_dir = "notebooks/eda/plots/step13_drift_analysis"
+    plot_dir = "notebooks/eda/plots/step13_distribution_drift"
     Path(plot_dir).mkdir(parents=True, exist_ok=True)
 
     visualizations = {}
@@ -1877,7 +1877,7 @@ def audit_temporal_leakage(
     # 6. Generate visualizations
     print("6. Generating leakage validation visualizations...")
 
-    plot_dir = "notebooks/eda/plots/step14_leakage_validation"
+    plot_dir = "notebooks/eda/plots/step14_leakage_audit"
     Path(plot_dir).mkdir(parents=True, exist_ok=True)
 
     visualizations = {}
