@@ -1,4 +1,3 @@
-import pytest
 from src.demand_forecast_intelligence.eda.config import get_m5_context
 from src.demand_forecast_intelligence.eda.utils.services.data_understanding.business_context import BusinessContextService
 
@@ -97,7 +96,39 @@ def test_create_problem_definition_plot():
     service = BusinessContextService(ctx)
 
     # Should not raise any errors
-    service._create_problem_definition_plot()
+    plot_path = service._create_problem_definition_plot()
 
-    # Check that plot was saved to context
-    # This is a basic test - the plot file should be created
+    # Should return a valid path string
+    assert isinstance(plot_path, str)
+    assert plot_path.endswith('.png')
+
+
+def test_analyze_problem_definition_missing_config():
+    """Test problem definition analysis with missing config."""
+    ctx = get_m5_context()
+    ctx.config = None
+    service = BusinessContextService(ctx)
+
+    result = service.analyze_problem_definition()
+
+    # Should handle missing config gracefully
+    assert "forecasting_objective" in result
+    assert "segmentation_objective" in result
+
+    forecasting = result["forecasting_objective"]
+    assert "target_variable" in forecasting
+    assert "forecast_horizon" in forecasting
+
+
+def test_analyze_problem_definition_partial_config():
+    """Test problem definition analysis with partial config."""
+    ctx = get_m5_context()
+    ctx.config = {"other_key": "value"}  # Missing m5_specifics
+    service = BusinessContextService(ctx)
+
+    result = service.analyze_problem_definition()
+
+    # Should handle missing m5_specifics gracefully
+    assert "forecasting_objective" in result
+    forecasting = result["forecasting_objective"]
+    assert "forecast_horizon" in forecasting

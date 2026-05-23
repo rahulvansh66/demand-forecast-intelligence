@@ -12,9 +12,7 @@ Framework Correlation:
 
 from typing import Any, Dict, List
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
 from ...core.base_service import BaseEDAService
 from ...core.context import EDAContext
@@ -46,7 +44,10 @@ class BusinessContextService(BaseEDAService):
         Returns:
             Dictionary containing forecasting and segmentation objectives
         """
-        m5_config = self.ctx.config.get("m5_specifics", {})
+        # Safe access to config with null check
+        m5_config = {}
+        if self.ctx.config is not None:
+            m5_config = self.ctx.config.get("m5_specifics", {})
 
         forecasting_objective = {
             "target_variable": "unit_sales",
@@ -259,7 +260,7 @@ class BusinessContextService(BaseEDAService):
         # Compile key findings
         key_findings = [
             "Dual-objective problem: 28-day forecasting + demand pattern segmentation",
-            f"Target evaluation metric: WRMSSE (Walmart custom accuracy measure)",
+            "Target evaluation metric: WRMSSE (Walmart custom accuracy measure)",
             f"Available features: {available_features['feature_count']['available']} vs forbidden: {available_features['feature_count']['forbidden']}",
             "Critical temporal cutoff: d_1913 (April 24, 2016) prevents leakage",
             "Five demand segments identified for specialized model strategies",
@@ -349,9 +350,12 @@ The M5 dataset presents a dual-objective retail forecasting challenge:
 
         return summary
 
-    def _create_problem_definition_plot(self) -> None:
+    def _create_problem_definition_plot(self) -> str:
         """
         Create visualization showing the problem definition timeline.
+
+        Returns:
+            String path to the created plot file
         """
         # Create figure
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
