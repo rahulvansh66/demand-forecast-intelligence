@@ -9,7 +9,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -118,7 +118,22 @@ class EDAContext:
         Args:
             step_key: Unique identifier for the analysis step
             result: Analysis result (will be JSON serialized)
+
+        Raises:
+            ValueError: If step_key is invalid or unsafe for file paths
         """
+        # Input validation for security and safety
+        if not step_key or not isinstance(step_key, str):
+            raise ValueError(f"Invalid step_key: {step_key}")
+
+        # Sanitize step_key to prevent path traversal and ensure safe filename
+        if not step_key.replace('_', '').replace('-', '').replace('.', '').isalnum():
+            raise ValueError(f"Invalid step_key: {step_key}")
+
+        # Additional check for path traversal attempts
+        if '..' in step_key or '/' in step_key or '\\' in step_key:
+            raise ValueError(f"Invalid step_key: {step_key}")
+
         self.results[step_key] = result
 
         # Also save to disk for persistence
