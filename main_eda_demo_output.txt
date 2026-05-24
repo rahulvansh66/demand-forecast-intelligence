@@ -1,0 +1,89 @@
+================================================================================
+M5 EDA FRAMEWORK DEMONSTRATION
+================================================================================
+
+🔧 Initializing EDA Context...
+   ✓ Data directory: data/raw
+   ✓ Output directory: data/eda/outputs
+   ✓ Plots directory: eda/plots
+
+🎯 Initializing EDA Orchestrator...
+   ✓ Available phases: [1, 2, 3, 4]
+   ✓ Available subgroups: ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '4C']
+   ✓ Total steps: [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+
+🏗️  Framework Architecture:
+   📊 Phases & Steps:
+      Phase 1 (Data Understanding): Steps [1, 3]
+      Phase 2 (Feature Analysis): Steps [5, 6, 7]
+      Phase 3 (Time Patterns): Steps [8, 9, 10, 11]
+      Phase 4 (Model Preparation): Steps [12, 13, 15]
+
+⚙️  M5 Configuration Summary:
+   • missing_threshold: 0.05
+   • outlier_threshold: 0.95
+   • correlation_threshold: 0.8
+   • variance_threshold: 0.01
+   • confidence_level: 0.95
+   • significance_level: 0.05
+   • bootstrap_samples: 1000
+   • time_split_date: 2016-04-24
+   • seasonality_periods: [7, 30, 365]
+   • min_obs_per_series: 100
+   • max_clusters: 10
+   • min_cluster_size: 100
+   • segment_features: ['intermittency', 'variability', 'trend', 'seasonality']
+   • hist_bins: 50
+   • kde_bandwidth: scott
+   • distribution_tests: ['shapiro', 'anderson', 'kstest']
+   • figure_size: (12, 8)
+   • color_palette: viridis
+   • max_categories_plot: 20
+   • correlation_annot: True
+
+📈 Demonstrating BusinessContextService (Step 1)...
+   🔍 Checking prerequisites...
+      ✓ All prerequisites satisfied
+   📋 Business context analysis capabilities:
+      • Forecasting objectives definition
+      • Temporal boundary establishment
+      • Data leakage prevention rules
+      • Problem visualization generation
+
+🚀 Framework Capabilities:
+   ✅ Modular service-based architecture
+   ✅ Dependency-aware execution order
+   ✅ Results caching (memory + persistent)
+   ✅ Multi-granularity execution (step/subgroup/phase/full)
+   ✅ M5-specific configuration system
+   ✅ Comprehensive test coverage (53 tests)
+   ✅ Plot generation (matplotlib/seaborn)
+   ✅ Security validation & input sanitization
+
+💻 Usage Examples:
+   # Run individual step:
+   orchestrator.run_step(1)
+
+   # Run subgroup:
+   orchestrator.run_subgroup('1A')
+
+   # Run full phase:
+   orchestrator.run_phase(1)
+
+   # Run complete pipeline:
+   orchestrator.run_full_pipeline()
+
+📦 Expected Deliverables:
+   📊 Plots: eda/plots/step_XX_*/
+   📄 Reports: data/eda/outputs/reports/
+   💾 Results: data/eda/outputs/step_results/
+   📈 Summaries: data/eda/outputs/phase_summaries/
+
+================================================================================
+FRAMEWORK READY FOR M5 DATASET ANALYSIS
+================================================================================
+
+Next Steps:
+1. Add M5 dataset files to data/raw/
+2. Run: orchestrator.run_full_pipeline()
+3. Check outputs in data/eda/outputs/ and eda/plots/

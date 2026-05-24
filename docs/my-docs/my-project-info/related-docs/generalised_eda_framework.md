@@ -668,3 +668,25 @@ After EDA, you should be able to write:
 > The dataset contains X rows and Y columns. The prediction target is Z. The target is imbalanced/skewed. Important issues include missing values in A, outliers in B, high cardinality in C, and possible leakage in D. Since the data contains time, validation should be time-based rather than random. Useful feature engineering ideas include lags, rolling averages, ratios, and missing indicators. The first baseline model should use cleaned features with an appropriate metric such as AUC/F1/RMSE/MAE depending on the problem.
 
 That is the real purpose of EDA: **to make better modeling decisions**, not just to create charts.
+
+======
+My notes:
+
+Phase 1: Data Understanding
+
+Subgroup 1A: Business Context (Step 1) - Problem understanding, objectives, leakage prevention
+Subgroup 1B: Data Quality Audit (Step 3) - Missing values, duplicates, impossible values, consistency
+Phase 2: Feature Analysis
+
+Subgroup 2A: Individual Feature Profiling (Step 5) - Distributions, skewness, cardinality, transformations
+Subgroup 2B: Relationship Analysis (Steps 6, 7) - Feature-target and feature-feature relationships
+Phase 3: Time-Series & Patterns
+
+Subgroup 3A: Temporal Analysis (Step 8) - Time structure, seasonality, trends, validation strategy
+Subgroup 3B: Data Quality Patterns (Steps 9, 10) - Missing value patterns, outlier detection
+Subgroup 3C: Segment Behavior (Step 11) - Geographic, category, temporal segment analysis
+Phase 4: Model Preparation
+
+Subgroup 4A: Feature Engineering (Step 12) - Transformation opportunities, lag features, encodings
+Subgroup 4B: Validation Strategy (Step 13) - Train-test distribution comparison, drift detection
+Subgroup 4C: Model Design (Step 15) - Architecture implications, metrics, preprocessing decisions
