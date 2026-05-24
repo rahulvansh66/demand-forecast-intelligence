@@ -34,30 +34,85 @@ Five distinct behavioral segments identified:
 ### 1. Data Quality and Preparation
 
 #### Missing Value Handling
+
+**EDA Finding**: Analysis revealed 5% missing data threshold as critical business constraint for maintaining forecast quality.
+
+**Why This Approach**:
 ```python
-# Strategy based on EDA threshold: 5% missing tolerance
-- Zero sales vs. missing sales distinction crucial for retail
-- Forward-fill approach for calendar features (events, holidays)
-- Median imputation for pricing data within item-category groups
-- Drop series with >5% missing values in critical periods
+# Zero sales vs. missing sales distinction
+- EDA Reasoning: BusinessContextService identified that retail context requires 
+  distinguishing true zeros (no sales) from missing observations (system errors)
+- Business Impact: Misclassifying zeros as missing would inflate demand estimates
+- Method Choice: Semantic differentiation prevents demand overestimation
+
+# Forward-fill for calendar features  
+- EDA Reasoning: Calendar data (holidays, events) are deterministic and known in advance
+- Why Needed: Missing holiday indicators would break seasonal pattern recognition
+- Method Choice: Forward-fill preserves temporal sequence integrity vs. mode imputation
+
+# Median imputation for pricing within item-category groups
+- EDA Reasoning: M5 config shows price_change_threshold of 10% indicates pricing stability
+- Why Needed: Missing prices would break price elasticity feature engineering
+- Method Choice: Median more robust than mean for skewed price distributions within categories
+
+# Drop series with >5% missing in critical periods
+- EDA Reasoning: Analysis shows min_obs_per_series = 100 for reliable statistical inference
+- Why Needed: Insufficient data compromises time series model parameter estimation
+- Method Choice: Dropping vs. imputation prevents model degradation on unreliable series
 ```
 
 #### Outlier Detection and Treatment
+
+**EDA Finding**: Analysis set outlier_threshold at 95th percentile, revealing promotional spikes vs. anomalies.
+
+**Why This Approach**:
 ```python
-# Based on 95th percentile threshold from EDA
-- IQR method for sales outliers (Q3 + 1.5×IQR)
-- Separate treatment for promotional vs. non-promotional periods
-- Cap extreme values rather than removal (preserve sales events)
-- Log-transform before outlier detection for skewed distributions
+# IQR method for sales outliers (Q3 + 1.5×IQR)
+- EDA Reasoning: M5 retail context shows legitimate high-volume sales during events
+- Why Needed: Raw outlier removal would eliminate crucial promotional patterns
+- Method Choice: IQR less sensitive than z-score for skewed retail distributions
+
+# Separate treatment for promotional vs. non-promotional periods  
+- EDA Reasoning: EDA config enables promotion_detection = True for event-driven spikes
+- Why Needed: Promotional periods have different statistical distributions than regular sales
+- Method Choice: Context-aware outlier detection prevents removing legitimate business events
+
+# Cap extreme values rather than removal
+- EDA Reasoning: Business context analysis showed sales events are informative, not noise
+- Why Needed: Complete removal loses information about demand surge capacity
+- Method Choice: Capping preserves directional information while limiting extreme influence
+
+# Log-transform before outlier detection  
+- EDA Reasoning: Retail sales exhibit heavy-tailed distributions (high skewness)
+- Why Needed: Standard outlier detection fails on non-Gaussian distributions
+- Method Choice: Log-transform normalizes distribution shape for robust detection
 ```
 
 #### Zero Sales Handling
+
+**EDA Finding**: Analysis revealed intermittent_threshold of 30% zeros, with sparse_series_threshold at 50% identifying critical patterns.
+
+**Why This Approach**:
 ```python
-# Critical for intermittent demand (>30% zeros threshold)
-- Preserve zero structure (don't impute zeros)
-- Create binary indicators for zero/non-zero periods
-- Apply different models for zero probability vs. positive sales magnitude
-- Consider Hurdle/Zero-Inflated models for high-zero series
+# Preserve zero structure (don't impute zeros)
+- EDA Reasoning: BusinessContextService identified 5 demand segments including intermittent patterns
+- Why Needed: Zero sales contain information about demand intermittency patterns
+- Method Choice: Preserving zeros maintains true demand signal vs. smoothing artifacts
+
+# Create binary indicators for zero/non-zero periods
+- EDA Reasoning: Intermittent demand requires separate modeling of occurrence vs. magnitude
+- Why Needed: Traditional forecasting assumes continuous demand, fails on sparse series
+- Method Choice: Binary indicators enable Hurdle models for two-stage prediction
+
+# Different models for zero probability vs. positive sales magnitude
+- EDA Reasoning: EDA segments show intermittent_low vs. intermittent_high have different patterns
+- Why Needed: Probability of sale vs. amount when sale occurs are different phenomena
+- Method Choice: Two-stage modeling captures both demand occurrence and intensity
+
+# Hurdle/Zero-Inflated models for high-zero series  
+- EDA Reasoning: Analysis shows >30% zero threshold identifies series needing special treatment
+- Why Needed: Standard models underperform on zero-inflated distributions
+- Method Choice: Hurdle models specifically designed for excess-zero retail scenarios
 ```
 
 ### 2. Feature Engineering Pipeline
@@ -169,13 +224,71 @@ SARIMA_CONFIGS = {
 
 ### 3. Model Selection and Validation
 
-#### Automated Model Selection
+#### Automated Model Selection with Optuna
+
+**EDA-Informed Parameter Space**:
 ```python
-# AIC/BIC optimization per series
-- Grid search over (p,d,q) × (P,D,Q,s) space
-- Information criteria minimization
-- Out-of-sample validation (time series CV)
-- Segment-specific parameter constraints
+# Optuna-based Bayesian optimization for SARIMA parameters
+import optuna
+from optuna.integration import MLflowCallback
+
+def objective_sarima(trial, series_data, segment_type):
+    """
+    EDA-informed parameter space based on segment characteristics
+    """
+    # EDA Reasoning: Different segments need different complexity levels
+    if segment_type == 'smooth_regular':
+        p = trial.suggest_int('p', 1, 3)  # Higher complexity for stable patterns
+        d = trial.suggest_int('d', 0, 2)  
+        q = trial.suggest_int('q', 1, 3)
+        seasonal_period = 7  # EDA shows strong weekly patterns
+    elif segment_type == 'intermittent_low':
+        p = trial.suggest_int('p', 0, 1)  # Lower complexity for sparse data
+        d = trial.suggest_int('d', 0, 1)
+        q = trial.suggest_int('q', 0, 1)  
+        seasonal_period = 0   # EDA shows weak seasonality in intermittent series
+    elif segment_type == 'lumpy_seasonal':
+        p = trial.suggest_int('p', 1, 2)
+        d = trial.suggest_int('d', 1, 2)  # EDA shows trend components
+        q = trial.suggest_int('q', 1, 2)
+        seasonal_period = 365  # EDA identifies annual patterns
+    
+    # MLflow tracking integration
+    with mlflow.start_run():
+        model = SARIMAX(series_data, order=(p,d,q), 
+                       seasonal_order=(1,1,1,seasonal_period) if seasonal_period > 0 else None)
+        fitted = model.fit(disp=False)
+        
+        # EDA-aligned validation using WRMSSE-approximation
+        cv_scores = time_series_cv_wrmsse(fitted, series_data)
+        
+        # Log parameters and metrics to MLflow
+        mlflow.log_params({
+            'p': p, 'd': d, 'q': q, 
+            'seasonal_period': seasonal_period,
+            'segment_type': segment_type
+        })
+        mlflow.log_metrics({
+            'cv_wrmsse': cv_scores.mean(),
+            'aic': fitted.aic,
+            'bic': fitted.bic
+        })
+        
+        return cv_scores.mean()
+
+# Run optimization with MLflow callback
+mlflow_callback = MLflowCallback(
+    tracking_uri="http://localhost:5000",
+    metric_name="cv_wrmsse"
+)
+
+study = optuna.create_study(
+    direction='minimize',
+    sampler=optuna.samplers.TPESampler(seed=42),
+    pruner=optuna.pruners.MedianPruner(n_startup_trials=5)
+)
+
+study.optimize(objective_sarima, n_trials=100, callbacks=[mlflow_callback])
 ```
 
 #### Cross-Validation Strategy
@@ -299,14 +412,173 @@ SEGMENT_MODELS = {
 }
 ```
 
+#### Hyperparameter Optimization with Optuna & MLflow
+
+**EDA-Informed LightGBM Tuning**:
+```python
+import optuna
+import mlflow
+import mlflow.lightgbm
+from optuna.integration import MLflowCallback
+
+def objective_lightgbm(trial, X_train, y_train, X_val, y_val, segment_type):
+    """
+    Segment-specific hyperparameter optimization based on EDA insights
+    """
+    # EDA Reasoning: Different segments need different model configurations
+    if segment_type == 'smooth_regular':
+        # Higher complexity for stable patterns with clear trends
+        max_depth = trial.suggest_int('max_depth', 6, 12)
+        num_leaves = trial.suggest_int('num_leaves', 100, 300)
+        min_data_in_leaf = trial.suggest_int('min_data_in_leaf', 20, 100)
+    elif segment_type == 'intermittent_low':
+        # Lower complexity for sparse data to prevent overfitting
+        max_depth = trial.suggest_int('max_depth', 3, 6)  
+        num_leaves = trial.suggest_int('num_leaves', 10, 50)
+        min_data_in_leaf = trial.suggest_int('min_data_in_leaf', 100, 500)
+    elif segment_type == 'erratic_volatile':
+        # Higher regularization for noisy patterns
+        max_depth = trial.suggest_int('max_depth', 4, 8)
+        num_leaves = trial.suggest_int('num_leaves', 30, 150)
+        min_data_in_leaf = trial.suggest_int('min_data_in_leaf', 50, 200)
+    
+    params = {
+        'objective': 'regression',
+        'metric': 'rmse',
+        'boosting_type': 'gbdt',
+        'max_depth': max_depth,
+        'num_leaves': num_leaves,
+        'min_data_in_leaf': min_data_in_leaf,
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 1.0),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.6, 1.0),
+        'bagging_freq': trial.suggest_int('bagging_freq', 1, 7),
+        'lambda_l1': trial.suggest_float('lambda_l1', 0.0, 1.0),
+        'lambda_l2': trial.suggest_float('lambda_l2', 0.0, 1.0),
+        'verbosity': -1
+    }
+    
+    # EDA-specific adjustments for intermittent demand
+    if segment_type in ['intermittent_low', 'intermittent_high']:
+        # Higher regularization for sparse series
+        params['lambda_l1'] = trial.suggest_float('lambda_l1', 0.1, 2.0)
+        params['lambda_l2'] = trial.suggest_float('lambda_l2', 0.1, 2.0)
+        # Focus sampling on non-zero values  
+        params['pos_bagging_fraction'] = trial.suggest_float('pos_bagging_fraction', 0.7, 1.0)
+    
+    # MLflow experiment tracking
+    with mlflow.start_run():
+        # Train model with early stopping
+        train_data = lgb.Dataset(X_train, label=y_train)
+        val_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
+        
+        model = lgb.train(
+            params,
+            train_data,
+            valid_sets=[val_data],
+            num_boost_round=1000,
+            callbacks=[lgb.early_stopping(50), lgb.log_evaluation(0)]
+        )
+        
+        # Predict and calculate WRMSSE-approximation
+        y_pred = model.predict(X_val)
+        wrmsse_score = calculate_wrmsse_approximation(y_val, y_pred, segment_type)
+        
+        # Log comprehensive metrics to MLflow
+        mlflow.log_params(params)
+        mlflow.log_metrics({
+            'wrmsse_score': wrmsse_score,
+            'rmse': np.sqrt(mean_squared_error(y_val, y_pred)),
+            'mae': mean_absolute_error(y_val, y_pred),
+            'num_boost_round': model.num_trees(),
+            'segment_type_encoded': hash(segment_type) % 1000
+        })
+        
+        # Log feature importance
+        importance_dict = dict(zip(model.feature_name(), model.feature_importance()))
+        mlflow.log_dict(importance_dict, "feature_importance.json")
+        
+        # Log model artifact
+        mlflow.lightgbm.log_model(model, f"model_{segment_type}")
+        
+        return wrmsse_score
+
+# Multi-objective optimization for WRMSSE and inference speed
+def multi_objective_lightgbm(trial, X_train, y_train, X_val, y_val, segment_type):
+    """Multi-objective optimization balancing accuracy and speed"""
+    
+    # Get single objective score
+    wrmsse_score = objective_lightgbm(trial, X_train, y_train, X_val, y_val, segment_type)
+    
+    # Measure inference time (business requirement: <100ms per series)
+    start_time = time.time()
+    _ = trial.study.best_trials[0].user_attrs.get('model').predict(X_val[:1000])
+    inference_time = (time.time() - start_time) / 1000  # per sample
+    
+    # Return both objectives (Optuna will handle Pareto optimization)
+    return wrmsse_score, inference_time
+
+# Set up MLflow experiment
+mlflow.set_experiment("M5_LightGBM_Segment_Optimization")
+
+# Configure Optuna study with MLflow integration
+mlflow_callback = MLflowCallback(
+    tracking_uri="http://localhost:5000",
+    metric_name="wrmsse_score"
+)
+
+# Separate study per segment (EDA-driven approach)
+for segment in ['smooth_regular', 'intermittent_low', 'intermittent_high', 'lumpy_seasonal', 'erratic_volatile']:
+    
+    study = optuna.create_study(
+        study_name=f"lightgbm_{segment}",
+        direction='minimize',
+        sampler=optuna.samplers.TPESampler(
+            seed=42,
+            n_startup_trials=10,
+            n_ei_candidates=24,
+            multivariate=True  # Capture parameter interactions
+        ),
+        pruner=optuna.pruners.HyperbandPruner(
+            min_resource=50,  # Minimum boosting rounds
+            max_resource=1000,  # Maximum boosting rounds  
+            reduction_factor=3
+        )
+    )
+    
+    # Add segment-specific constraints based on EDA findings
+    if segment in ['intermittent_low', 'intermittent_high']:
+        # Constrain complexity for sparse data
+        study.enqueue_trial({
+            'max_depth': 4, 'num_leaves': 15, 'min_data_in_leaf': 200,
+            'lambda_l1': 0.5, 'lambda_l2': 0.5
+        })
+    
+    study.optimize(
+        lambda trial: objective_lightgbm(trial, X_train_segment, y_train_segment, 
+                                       X_val_segment, y_val_segment, segment),
+        n_trials=200,
+        callbacks=[mlflow_callback],
+        timeout=3600  # 1 hour per segment
+    )
+    
+    # Log best parameters for segment
+    with mlflow.start_run(run_name=f"best_{segment}"):
+        mlflow.log_params(study.best_params)
+        mlflow.log_metric("best_wrmsse", study.best_value)
+        mlflow.log_text(str(study.best_trial), "optimization_summary.txt")
+```
+
 #### Advanced Training Techniques
 ```python
-# Ensemble and stacking strategies
-1. Time-based cross-validation with purged gaps
-2. Stacked generalization (meta-learner on residuals)
-3. Quantile regression for prediction intervals
-4. Early stopping with validation WRMSSE monitoring
-5. Feature importance analysis for interpretability
+# MLflow-tracked ensemble and stacking strategies
+1. Time-based cross-validation with purged gaps (logged to MLflow)
+2. Stacked generalization with meta-learner performance tracking
+3. Quantile regression with uncertainty calibration metrics
+4. Early stopping with validation WRMSSE monitoring via MLflow callbacks
+5. Feature importance analysis with MLflow artifact logging
+6. Hyperparameter importance analysis using Optuna's built-in tools
+7. Multi-objective optimization (accuracy vs. inference speed)
 ```
 
 ---
@@ -345,6 +617,220 @@ def select_model_by_series_characteristics(series_stats):
     - Trend strength > 0.7 → LightGBM-dominant ensemble
     """
     return model_assignment
+```
+
+---
+
+## MLOps and Experiment Management
+
+### 1. MLflow Integration Strategy
+
+#### Experiment Organization
+```python
+# Hierarchical experiment structure based on EDA segments
+EXPERIMENT_HIERARCHY = {
+    'M5_Demand_Forecasting': {
+        'SARIMA_Models': [
+            'SARIMA_Smooth_Regular',
+            'SARIMA_Intermittent_Low', 
+            'SARIMA_Intermittent_High',
+            'SARIMA_Lumpy_Seasonal',
+            'SARIMA_Erratic_Volatile'
+        ],
+        'LightGBM_Models': [
+            'LightGBM_Smooth_Regular',
+            'LightGBM_Intermittent_Low',
+            'LightGBM_Intermittent_High', 
+            'LightGBM_Lumpy_Seasonal',
+            'LightGBM_Erratic_Volatile'
+        ],
+        'Ensemble_Models': [
+            'Hybrid_SARIMA_LightGBM',
+            'Stacked_Residual_Models',
+            'Multi_Objective_Ensemble'
+        ]
+    }
+}
+
+# Custom MLflow metrics aligned with EDA findings
+def log_eda_aligned_metrics(y_true, y_pred, segment_type, model_type):
+    """Log business-relevant metrics derived from EDA analysis"""
+    
+    # Primary metric: WRMSSE approximation
+    wrmsse_score = calculate_wrmsse_approximation(y_true, y_pred, segment_type)
+    mlflow.log_metric("wrmsse_score", wrmsse_score)
+    
+    # EDA-specific metrics per segment
+    if segment_type in ['intermittent_low', 'intermittent_high']:
+        # Zero-inflation accuracy for intermittent demand
+        zero_accuracy = calculate_zero_prediction_accuracy(y_true, y_pred)
+        mlflow.log_metric("zero_prediction_accuracy", zero_accuracy)
+        
+        # Intermittency preservation
+        true_intermittency = (y_true == 0).mean()
+        pred_intermittency = (y_pred <= 0.5).mean()  # Threshold for zero classification
+        mlflow.log_metric("intermittency_preservation", 1 - abs(true_intermittency - pred_intermittency))
+    
+    if segment_type == 'lumpy_seasonal':
+        # Seasonal pattern preservation
+        seasonal_correlation = calculate_seasonal_correlation(y_true, y_pred, period=365)
+        mlflow.log_metric("seasonal_correlation", seasonal_correlation)
+    
+    # Business impact metrics
+    inventory_cost_impact = calculate_inventory_impact(y_true, y_pred)
+    stockout_reduction = calculate_stockout_reduction(y_true, y_pred)
+    
+    mlflow.log_metrics({
+        "inventory_cost_impact": inventory_cost_impact,
+        "stockout_reduction": stockout_reduction,
+        "directional_accuracy": calculate_directional_accuracy(y_true, y_pred)
+    })
+```
+
+#### Model Registry and Versioning
+```python
+# EDA-informed model registration strategy
+def register_best_model_per_segment():
+    """Register best performing model per segment to MLflow Model Registry"""
+    
+    for segment in ['smooth_regular', 'intermittent_low', 'intermittent_high', 'lumpy_seasonal', 'erratic_volatile']:
+        
+        # Get best run per segment based on WRMSSE
+        experiment = mlflow.get_experiment_by_name(f"M5_LightGBM_{segment}")
+        runs = mlflow.search_runs(experiment_ids=[experiment.experiment_id])
+        best_run = runs.loc[runs['metrics.wrmsse_score'].idxmin()]
+        
+        # Register model with segment-specific alias
+        model_uri = f"runs:/{best_run.run_id}/model"
+        mlflow.register_model(
+            model_uri=model_uri,
+            name=f"M5_Forecast_{segment.title()}",
+            tags={
+                "segment_type": segment,
+                "eda_characteristics": get_segment_characteristics(segment),
+                "business_priority": get_segment_priority(segment),
+                "deployment_strategy": "batch" if segment in ['intermittent_low'] else "realtime"
+            }
+        )
+```
+
+### 2. Optuna Integration and Study Management
+
+#### Advanced Study Configuration
+```python
+# EDA-informed study design with knowledge sharing
+def create_multi_segment_study():
+    """Create Optuna studies with parameter sharing between similar segments"""
+    
+    # Define parameter relationships based on EDA insights  
+    PARAMETER_SHARING = {
+        'regular_patterns': ['smooth_regular', 'lumpy_seasonal'],  # Share trend parameters
+        'sparse_patterns': ['intermittent_low', 'intermittent_high'],  # Share sparsity handling
+        'volatile_patterns': ['erratic_volatile']  # Isolated optimization
+    }
+    
+    storage = optuna.storages.RDBStorage(
+        url="postgresql://optuna:optuna@localhost/optuna_m5",
+        heartbeat_interval=60,
+        grace_period=120
+    )
+    
+    studies = {}
+    for group_name, segments in PARAMETER_SHARING.items():
+        
+        # Shared study for similar segments
+        study = optuna.create_study(
+            study_name=f"m5_shared_{group_name}",
+            storage=storage,
+            direction='minimize',
+            sampler=optuna.samplers.TPESampler(
+                multivariate=True,
+                group=True,  # Enable parameter grouping
+                n_startup_trials=20,  # More startup trials for shared learning
+                n_ei_candidates=48   # Higher exploration for complex space
+            ),
+            pruner=optuna.pruners.HyperbandPruner(
+                min_resource=100,
+                max_resource=2000,
+                reduction_factor=3
+            )
+        )
+        studies[group_name] = study
+    
+    return studies
+
+# Optuna callbacks for MLflow integration
+class MLflowOptunaCallback:
+    def __init__(self, experiment_name, segment_type):
+        self.experiment_name = experiment_name  
+        self.segment_type = segment_type
+        mlflow.set_experiment(experiment_name)
+    
+    def __call__(self, study, trial):
+        with mlflow.start_run(run_name=f"trial_{trial.number}_{self.segment_type}"):
+            # Log trial parameters
+            mlflow.log_params(trial.params)
+            
+            # Log trial result
+            if trial.value is not None:
+                mlflow.log_metric("objective_value", trial.value)
+                mlflow.log_metric("trial_number", trial.number)
+            
+            # Log study statistics
+            mlflow.log_metrics({
+                "study_trials_complete": len(study.trials),
+                "study_best_value": study.best_value if study.best_trial else float('inf'),
+                "pruned_trials": len([t for t in study.trials if t.state == optuna.TrialState.PRUNED])
+            })
+            
+            # Log hyperparameter importance (every 50 trials)
+            if trial.number % 50 == 0 and len(study.trials) >= 10:
+                importance = optuna.importance.get_param_importances(study)
+                mlflow.log_dict(importance, "hyperparameter_importance.json")
+```
+
+#### Automated Hyperparameter Analysis
+```python
+# EDA-driven parameter importance analysis
+def analyze_hyperparameter_importance():
+    """Analyze parameter importance across segments using Optuna's built-in tools"""
+    
+    results = {}
+    for segment in ['smooth_regular', 'intermittent_low', 'intermittent_high', 'lumpy_seasonal', 'erratic_volatile']:
+        
+        study = optuna.load_study(
+            study_name=f"lightgbm_{segment}",
+            storage="postgresql://optuna:optuna@localhost/optuna_m5"
+        )
+        
+        # Parameter importance analysis
+        param_importance = optuna.importance.get_param_importances(study)
+        
+        # Hyperparameter effect analysis
+        contour_importance = optuna.importance.get_param_importances(
+            study, evaluator=optuna.importance.MeanDecreaseImpurityImportanceEvaluator()
+        )
+        
+        results[segment] = {
+            'param_importance': param_importance,
+            'contour_importance': contour_importance,
+            'best_params': study.best_params,
+            'best_value': study.best_value,
+            'n_trials': len(study.trials)
+        }
+        
+        # Log to MLflow for visualization
+        with mlflow.start_run(run_name=f"importance_analysis_{segment}"):
+            mlflow.log_dict(param_importance, "param_importance.json")
+            mlflow.log_dict(contour_importance, "contour_importance.json") 
+            mlflow.log_params(study.best_params)
+            mlflow.log_metric("best_wrmsse", study.best_value)
+            
+            # Create and log visualization
+            fig = optuna.visualization.plot_param_importances(study)
+            mlflow.log_figure(fig, f"param_importance_{segment}.html")
+    
+    return results
 ```
 
 ---
@@ -404,38 +890,49 @@ CV_STRATEGY = {
 
 ## Implementation Roadmap
 
-### Phase 1: Data Infrastructure (Weeks 1-2)
+### Phase 1: Data Infrastructure & MLOps Setup (Weeks 1-2)
 1. **Data Pipeline Setup**
    - Implement lazy loading for large M5 dataset
-   - Create preprocessing pipelines for both SARIMA and LightGBM
+   - Create EDA-informed preprocessing pipelines for both SARIMA and LightGBM
    - Set up feature engineering framework with temporal constraints
 
-2. **Validation Framework**
-   - Implement WRMSSE calculation with hierarchical weights
-   - Create time series cross-validation utilities
-   - Build segment classification pipeline
+2. **MLOps Infrastructure**
+   - Deploy MLflow tracking server (http://localhost:5000)
+   - Configure Optuna database backend (PostgreSQL/MySQL for persistence)
+   - Set up experiment tracking with hierarchical organization by segment
+   - Implement WRMSSE calculation with hierarchical weights as custom MLflow metric
 
-### Phase 2: Baseline Models (Weeks 3-4)
-1. **SARIMA Implementation**
-   - Auto-ARIMA parameter selection per segment
-   - Seasonal decomposition and stationarity testing
-   - Hierarchical forecasting reconciliation
+3. **Validation Framework**
+   - Create time series cross-validation utilities with MLflow integration
+   - Build segment classification pipeline with performance logging
+   - Implement EDA-driven data quality monitoring
 
-2. **LightGBM Implementation**
-   - Feature engineering pipeline with 200+ features
-   - Segment-specific hyperparameter tuning
-   - Multi-output forecasting framework
+### Phase 2: Baseline Models with Automated Tuning (Weeks 3-4)
+1. **SARIMA Implementation with Optuna**
+   - Segment-specific parameter space definition based on EDA insights
+   - Bayesian optimization for (p,d,q) × (P,D,Q,s) parameter selection
+   - MLflow experiment tracking for model comparison across segments
+   - Seasonal decomposition and stationarity testing with automated logging
 
-### Phase 3: Advanced Modeling (Weeks 5-6)
-1. **Ensemble Methods**
-   - SARIMA + LightGBM combination strategies
-   - Quantile regression for uncertainty estimation
-   - Model selection automation by series characteristics
+2. **LightGBM Implementation with Hyperparameter Optimization**
+   - EDA-informed feature engineering pipeline (200+ features)
+   - Multi-objective Optuna optimization (WRMSSE vs. inference speed)
+   - Segment-specific hyperparameter tuning with MLflow artifact storage
+   - Multi-output forecasting framework with performance benchmarking
 
-2. **Optimization**
-   - WRMSSE-focused hyperparameter tuning
-   - Feature selection and importance analysis
-   - Performance profiling and scalability testing
+### Phase 3: Advanced Modeling & Optimization (Weeks 5-6)
+1. **Ensemble Methods with Experiment Tracking**
+   - SARIMA + LightGBM combination with MLflow model registry
+   - Quantile regression with uncertainty calibration metrics
+   - Automated model selection based on EDA-derived series characteristics
+   - Cross-validation ensemble weights optimization via Optuna
+
+2. **Advanced Optimization & Analysis**
+   - Multi-study Optuna optimization across segments with shared knowledge
+   - Feature importance analysis with MLflow artifact storage and visualization  
+   - Hyperparameter sensitivity analysis using Optuna's importance evaluation
+   - Performance profiling with MLflow metrics (memory, CPU, inference time)
+   - WRMSSE-focused loss function integration in LightGBM training
 
 ### Phase 4: Production Readiness (Weeks 7-8)
 1. **Model Deployment**
